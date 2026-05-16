@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.backend.mapper.PostAuditRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.backend.entity.PostAuditRecord">
+            <id property="auditId" column="audit_id" />
+            <result property="postId" column="post_id" />
+            <result property="auditorId" column="auditor_id" />
+            <result property="auditType" column="audit_type" />
+            <result property="action" column="action" />
+            <result property="reason" column="reason" />
+            <result property="oldStatus" column="old_status" />
+            <result property="newStatus" column="new_status" />
+            <result property="createTime" column="create_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        audit_id,post_id,auditor_id,audit_type,action,reason,
+        old_status,new_status,create_time
+    </sql>
+</mapper>

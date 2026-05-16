@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.backend.mapper.ScenicSpotEmbeddingMapper">
+
+    <resultMap id="BaseResultMap" type="com.backend.entity.ScenicSpotEmbedding">
+            <id property="spotId" column="spot_id" />
+            <result property="modelName" column="model_name" />
+            <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        spot_id,model_name,update_time,embedding
+    </sql>
+</mapper>

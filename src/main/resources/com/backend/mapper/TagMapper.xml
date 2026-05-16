@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.backend.mapper.TagMapper">
+
+    <resultMap id="BaseResultMap" type="com.backend.entity.Tag">
+            <id property="tagId" column="tag_id" />
+            <result property="name" column="name" />
+            <result property="useCount" column="use_count" />
+            <result property="createTime" column="create_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        tag_id,name,use_count,create_time
+    </sql>
+</mapper>

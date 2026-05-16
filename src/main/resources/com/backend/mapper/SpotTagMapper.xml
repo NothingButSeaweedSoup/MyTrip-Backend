@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.backend.mapper.SpotTagMapper">
+
+    <resultMap id="BaseResultMap" type="com.backend.entity.SpotTag">
+            <id property="spotId" column="spot_id" />
+            <id property="tagId" column="tag_id" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        spot_id,tag_id
+    </sql>
+</mapper>
