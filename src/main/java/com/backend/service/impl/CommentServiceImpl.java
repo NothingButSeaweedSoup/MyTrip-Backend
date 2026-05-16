@@ -37,7 +37,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         comment.setParentCommentId(request.getParentCommentId());
         comment.setContent(request.getContent());
         comment.setLikes(0L);
-        comment.setStatus(0); // 正常
+        comment.setStatus(1); // 审核中
         save(comment);
         return comment.getCommentId();
     }
@@ -46,7 +46,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     public List<CommentVO> getCommentTree(Long postId) {
         LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Comment::getPostId, postId)
-               .ne(Comment::getStatus, 2) // 排除已删除
+               .eq(Comment::getStatus, 0) // 仅正常
                .orderByAsc(Comment::getCreateTime);
 
         List<Comment> comments = list(wrapper);

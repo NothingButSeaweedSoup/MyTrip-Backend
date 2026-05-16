@@ -1,14 +1,11 @@
 package com.backend.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.util.Date;
 import lombok.Data;
 
 /**
- * 帖子-标签关联表
+ * 帖子-标签关联表（复合主键：post_id + tag_id）
  * @TableName post_tag
  */
 @TableName(value ="post_tag")
@@ -17,13 +14,11 @@ public class PostTag {
     /**
      * 帖子ID
      */
-    @TableId
     private Long postId;
 
     /**
      * 标签ID
      */
-    @TableId
     private Integer tagId;
 
     /**

@@ -187,7 +187,8 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         }
     }
 
-    private PostVO toPostVO(Post post) {
+    @Override
+    public PostVO toPostVO(Post post) {
         // 查询作者
         User author = userService.getById(post.getAuthorId());
 

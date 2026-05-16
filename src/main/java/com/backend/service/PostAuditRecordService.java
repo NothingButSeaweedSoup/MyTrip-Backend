@@ -1,13 +1,14 @@
 package com.backend.service;
 
 import com.backend.entity.PostAuditRecord;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 
-/**
-* @author Administrator
-* @description 针对表【post_audit_record(统一审核记录表)】的数据库操作Service
-* @createDate 2026-05-16 00:16:36
-*/
 public interface PostAuditRecordService extends IService<PostAuditRecord> {
 
+    /** 审核帖子（通过/驳回），记录审核日志 */
+    void auditPost(Long auditorId, Long postId, String action, String remark);
+
+    /** 审核评论（通过/驳回），记录审核日志 */
+    void auditComment(Long auditorId, Long commentId, String action, String remark);
 }

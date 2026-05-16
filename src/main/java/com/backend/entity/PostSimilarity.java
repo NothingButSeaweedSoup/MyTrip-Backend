@@ -1,14 +1,11 @@
 package com.backend.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.util.Date;
 import lombok.Data;
 
 /**
- * 帖子相似表
+ * 帖子相似表（复合主键：post_id + similar_post_id）
  * @TableName post_similarity
  */
 @TableName(value ="post_similarity")
@@ -17,13 +14,11 @@ public class PostSimilarity {
     /**
      * 源帖子ID
      */
-    @TableId
     private Long postId;
 
     /**
      * 相似帖子ID
      */
-    @TableId
     private Long similarPostId;
 
     /**

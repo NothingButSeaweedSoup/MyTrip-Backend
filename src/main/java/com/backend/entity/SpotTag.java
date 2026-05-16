@@ -1,13 +1,10 @@
 package com.backend.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 /**
- * 景点-标签关联表
+ * 景点-标签关联表（复合主键：spot_id + tag_id）
  * @TableName spot_tag
  */
 @TableName(value ="spot_tag")
@@ -16,13 +13,11 @@ public class SpotTag {
     /**
      * 景点ID
      */
-    @TableId
     private Long spotId;
 
     /**
      * 标签ID
      */
-    @TableId
     private Integer tagId;
 
     @Override

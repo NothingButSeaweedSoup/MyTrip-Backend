@@ -33,7 +33,7 @@ public class UserBehavior {
     /**
      * 行为类型
      */
-    private Object actionType;
+    private String actionType;
 
     /**
      * 浏览时长(秒) (仅view有效)

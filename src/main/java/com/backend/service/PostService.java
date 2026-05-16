@@ -24,4 +24,7 @@ public interface PostService extends IService<Post> {
 
     /** 点赞/取消点赞 */
     long toggleLike(Long userId, Long postId, String action);
+
+    /** 将 Post 实体转为 PostVO（供其他模块复用） */
+    PostVO toPostVO(com.backend.entity.Post post);
 }
