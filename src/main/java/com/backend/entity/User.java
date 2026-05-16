@@ -46,14 +46,14 @@ public class User {
     private String bio;
 
     /**
-     * 偏好标签ID列表
+     * 偏好标签ID列表 (JSON)
      */
-    private Object preferredTags;
+    private String preferredTags;
 
     /**
      * 预算等级
      */
-    private Object budgetLevel;
+    private String budgetLevel;
 
     /**
      * 角色: 0-普通用户, 1-审核员, 9-管理员
