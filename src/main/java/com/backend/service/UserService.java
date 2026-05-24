@@ -23,6 +23,9 @@ public interface UserService extends IService<User> {
     /** 更新个人资料 */
     void updateProfile(Long userId, ProfileUpdateRequest request);
 
+    /** 修改密码 */
+    void changePassword(Long userId, ChangePasswordRequest request);
+
     /** 登出，Token加入黑名单 */
     void logout(String token);
 

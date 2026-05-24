@@ -18,6 +18,9 @@ public class CommentVO {
     private Long likes;
     private Date createTime;
 
+    /** 当前用户是否已点赞 */
+    private Boolean liked;
+
     /** 子回复列表（树形结构） */
     private List<CommentVO> children;
 }

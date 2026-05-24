@@ -6,9 +6,13 @@ import com.backend.common.UnauthorizedException;
 import com.backend.dto.CommentCreateRequest;
 import com.backend.dto.CommentVO;
 import com.backend.entity.Comment;
+import com.backend.entity.Post;
 import com.backend.entity.User;
 import com.backend.mapper.CommentMapper;
+import com.backend.entity.UserBehavior;
 import com.backend.service.CommentService;
+import com.backend.service.PostService;
+import com.backend.service.UserBehaviorService;
 import com.backend.service.UserService;
 import com.backend.util.ImageUrlUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -37,6 +41,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     @Autowired
     private ImageUrlUtil imageUrlUtil;
 
+    @Autowired
+    private PostService postService;
+
+    @Autowired
+    private UserBehaviorService userBehaviorService;
+
     @Override
     @Transactional
     public Long createComment(Long userId, CommentCreateRequest request) {
@@ -48,11 +58,24 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         comment.setLikes(0L);
         comment.setStatus(0); // 正常
         save(comment);
+
+        // 更新帖子评论数
+        Post post = postService.getById(request.getPostId());
+        if (post != null) {
+            post.setCommentCount(post.getCommentCount() + 1);
+            postService.updateById(post);
+        }
+
         return comment.getCommentId();
     }
 
     @Override
     public List<CommentVO> getCommentTree(Long postId) {
+        return getCommentTree(postId, null);
+    }
+
+    @Override
+    public List<CommentVO> getCommentTree(Long postId, Long userId) {
         LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Comment::getPostId, postId)
                .eq(Comment::getStatus, 0) // 仅正常
@@ -75,7 +98,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
         // 递归构建树
         return roots.stream()
-                .map(root -> buildCommentVO(root, parentMap, userMap))
+                .map(root -> buildCommentVO(root, parentMap, userMap, userId))
                 .collect(Collectors.toList());
     }
 
@@ -109,6 +132,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         if ("like".equals(action)) {
             Long added = stringRedisTemplate.opsForSet().add(likedSetKey, userId.toString());
             if (added != null && added > 0) {
+                saveCommentLikeRecord(userId, commentId);
                 seedCounterFromDb(likeKey, commentId);
                 long count = stringRedisTemplate.opsForValue().increment(likeKey);
                 stringRedisTemplate.opsForSet().add(RedisKeys.DIRTY_COMMENTS, commentId.toString());
@@ -117,6 +141,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         } else if ("unlike".equals(action)) {
             Long removed = stringRedisTemplate.opsForSet().remove(likedSetKey, userId.toString());
             if (removed != null && removed > 0) {
+                removeCommentLikeRecord(userId, commentId);
                 seedCounterFromDb(likeKey, commentId);
                 long count = stringRedisTemplate.opsForValue().decrement(likeKey);
                 stringRedisTemplate.opsForSet().add(RedisKeys.DIRTY_COMMENTS, commentId.toString());
@@ -149,26 +174,62 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         return comment.getLikes();
     }
 
+    private boolean isLikedByUser(Long commentId, Long userId) {
+        try {
+            return Boolean.TRUE.equals(
+                stringRedisTemplate.opsForSet().isMember(RedisKeys.COMMENT_LIKED_SET + commentId, userId.toString())
+            );
+        } catch (Exception e) {
+            return hasCommentLikeRecord(userId, commentId);
+        }
+    }
+
+    private boolean hasCommentLikeRecord(Long userId, Long commentId) {
+        return userBehaviorService.lambdaQuery()
+                .eq(UserBehavior::getUserId, userId)
+                .eq(UserBehavior::getCommentId, commentId)
+                .eq(UserBehavior::getActionType, "like")
+                .count() > 0;
+    }
+
+    private void saveCommentLikeRecord(Long userId, Long commentId) {
+        if (hasCommentLikeRecord(userId, commentId)) return;
+        UserBehavior ub = new UserBehavior();
+        ub.setUserId(userId);
+        ub.setCommentId(commentId);
+        ub.setActionType("like");
+        userBehaviorService.save(ub);
+    }
+
+    private void removeCommentLikeRecord(Long userId, Long commentId) {
+        userBehaviorService.remove(new LambdaQueryWrapper<UserBehavior>()
+                .eq(UserBehavior::getUserId, userId)
+                .eq(UserBehavior::getCommentId, commentId)
+                .eq(UserBehavior::getActionType, "like"));
+    }
+
     // ---- helpers ----
 
-    private CommentVO buildCommentVO(Comment c, Map<Long, List<Comment>> parentMap, Map<Long, User> userMap) {
+    private CommentVO buildCommentVO(Comment c, Map<Long, List<Comment>> parentMap, Map<Long, User> userMap, Long userId) {
         User author = userMap.get(c.getAuthorId());
         List<Comment> children = parentMap.getOrDefault(c.getCommentId(), Collections.emptyList());
         List<CommentVO> childVOs = children.stream()
-                .map(child -> buildCommentVO(child, parentMap, userMap))
+                .map(child -> buildCommentVO(child, parentMap, userMap, userId))
                 .collect(Collectors.toList());
 
         long likes = getRedisLong(RedisKeys.COMMENT_LIKES + c.getCommentId(), c.getLikes());
+        boolean liked = userId != null && isLikedByUser(c.getCommentId(), userId);
 
         return CommentVO.builder()
                 .commentId(c.getCommentId())
                 .postId(c.getPostId())
                 .authorId(c.getAuthorId())
                 .authorName(author != null ? author.getUsername() : null)
-                .authorAvatar(imageUrlUtil.getFullUrl(author != null ? author.getAvatar() : null))
+                .authorAvatar(author != null ? author.getAvatar() : null)
                 .parentCommentId(c.getParentCommentId())
                 .content(c.getContent())
                 .likes(likes)
+                .liked(liked)
                 .createTime(c.getCreateTime())
                 .children(childVOs.isEmpty() ? null : childVOs)
                 .build();

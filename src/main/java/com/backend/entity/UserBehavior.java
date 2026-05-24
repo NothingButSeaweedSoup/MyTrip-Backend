@@ -31,6 +31,11 @@ public class UserBehavior {
     private Long postId;
 
     /**
+     * 评论ID (评论相关行为时有值)
+     */
+    private Long commentId;
+
+    /**
      * 行为类型
      */
     private String actionType;

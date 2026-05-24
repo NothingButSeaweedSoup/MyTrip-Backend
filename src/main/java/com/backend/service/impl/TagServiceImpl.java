@@ -19,4 +19,13 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
                .last("LIMIT " + Math.min(limit, 100));
         return list(wrapper);
     }
+
+    @Override
+    public List<Tag> searchByName(String keyword) {
+        LambdaQueryWrapper<Tag> wrapper = new LambdaQueryWrapper<>();
+        wrapper.like(Tag::getName, keyword)
+               .orderByDesc(Tag::getUseCount)
+               .last("LIMIT 20");
+        return list(wrapper);
+    }
 }

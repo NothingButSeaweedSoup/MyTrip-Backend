@@ -9,6 +9,7 @@ import com.backend.dto.*;
 import com.backend.entity.*;
 import com.backend.mapper.PostMapper;
 import com.backend.service.*;
+import com.backend.entity.PostAuditRecord;
 import com.backend.task.ViewCountTask;
 import com.backend.util.ImageUrlUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -62,6 +63,10 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
     @Autowired
     private UserBehaviorService userBehaviorService;
+
+    @Lazy
+    @Autowired
+    private PostAuditRecordService postAuditRecordService;
 
     @Lazy
     @Autowired
@@ -191,6 +196,11 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         Post post = getById(postId);
         if (post == null || post.getStatus() == 4) {
             throw new BusinessException("帖子不存在");
+        }
+        if (post.getStatus() != 1) {
+            if (userId == null || !post.getAuthorId().equals(userId)) {
+                throw new BusinessException("帖子不存在");
+            }
         }
         viewCountTask.incrementViews(postId);
         return toPostVO(post, userId);
@@ -382,12 +392,14 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
                 .likes(likes)
                 .liked(liked)
                 .favorited(favorited)
+                .status(post.getStatus())
+                .rejectReason(getRejectReason(post.getPostId()))
                 .commentCount(post.getCommentCount())
                 .hotScore(post.getHotScore())
                 .createTime(post.getCreateTime())
                 .authorId(post.getAuthorId())
                 .authorName(author != null ? author.getUsername() : null)
-                .authorAvatar(imageUrlUtil.getFullUrl(author != null ? author.getAvatar() : null))
+                .authorAvatar(author != null ? author.getAvatar() : null)
                 .images(imageUrls)
                 .tags(tagInfos)
                 .build();
@@ -454,6 +466,16 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
                 .filter(postMap::containsKey)
                 .map(id -> toPostVO(postMap.get(id), userId))
                 .collect(Collectors.toList());
+    }
+
+    private String getRejectReason(Long postId) {
+        PostAuditRecord record = postAuditRecordService.lambdaQuery()
+                .eq(PostAuditRecord::getPostId, postId)
+                .eq(PostAuditRecord::getAction, 2)
+                .orderByDesc(PostAuditRecord::getCreateTime)
+                .last("LIMIT 1")
+                .one();
+        return record != null ? record.getReason() : null;
     }
 
     private long getRedisLong(String key, long fallback) {

@@ -19,4 +19,9 @@ public class TagController {
     public Result<List<Tag>> hot(@RequestParam(defaultValue = "20") int limit) {
         return Result.success(tagService.getHotTags(limit));
     }
+
+    @GetMapping("/search")
+    public Result<List<Tag>> search(@RequestParam String q) {
+        return Result.success(tagService.searchByName(q));
+    }
 }

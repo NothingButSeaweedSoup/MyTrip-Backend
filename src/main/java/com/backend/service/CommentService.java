@@ -16,6 +16,9 @@ public interface CommentService extends IService<Comment> {
     /** 获取评论树（按时间正序） */
     List<CommentVO> getCommentTree(Long postId);
 
+    /** 获取评论树（含当前用户点赞状态） */
+    List<CommentVO> getCommentTree(Long postId, Long userId);
+
     /** 删除评论（软删除） */
     void deleteComment(Long userId, Long commentId);
 

@@ -30,6 +30,12 @@ public class PostVO {
     /** 当前用户是否已收藏 */
     private Boolean favorited;
 
+    /** 帖子状态: 0-待审核, 1-通过, 2-驳回, 3-仅自己可见, 4-已删除 */
+    private Integer status;
+
+    /** 驳回原因 (status=2时有值) */
+    private String rejectReason;
+
     /** 图片URL列表 */
     private List<String> images;
 

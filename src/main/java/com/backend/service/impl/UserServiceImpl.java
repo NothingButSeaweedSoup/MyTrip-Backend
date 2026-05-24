@@ -107,6 +107,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = getById(userId);
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new BusinessException("原密码错误");
+        }
+        User update = new User();
+        update.setUserId(userId);
+        update.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        updateById(update);
+    }
+
+    @Override
+    @Transactional
     public void updateProfile(Long userId, ProfileUpdateRequest request) {
         User user = new User();
         user.setUserId(userId);

@@ -17,6 +17,6 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "密码不能为空")
-    @Size(min = 6, max = 32, message = "密码长度6-32位")
+    @Size(min = 64, max = 64, message = "密码格式错误")
     private String password;
 }

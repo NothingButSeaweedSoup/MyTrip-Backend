@@ -26,8 +26,10 @@ public class CommentController {
     }
 
     @GetMapping("/list/{postId}")
-    public Result<List<CommentVO>> list(@PathVariable Long postId) {
-        return Result.success(commentService.getCommentTree(postId));
+    public Result<List<CommentVO>> list(@PathVariable Long postId,
+                                         Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return Result.success(commentService.getCommentTree(postId, userId));
     }
 
     @DeleteMapping("/{commentId}")
