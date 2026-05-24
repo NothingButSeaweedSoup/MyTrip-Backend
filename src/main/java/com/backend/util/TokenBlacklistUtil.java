@@ -1,5 +1,6 @@
 package com.backend.util;
 
+import com.backend.common.RedisKeys;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -10,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class TokenBlacklistUtil {
 
-    private static final String BLACKLIST_PREFIX = "token:blacklist:";
+    // Redis key constants → com.backend.common.RedisKeys
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -22,11 +23,11 @@ public class TokenBlacklistUtil {
         long ttl = expiration.getTime() - System.currentTimeMillis();
         if (ttl > 0) {
             stringRedisTemplate.opsForValue().set(
-                    BLACKLIST_PREFIX + token, "1", ttl, TimeUnit.MILLISECONDS);
+                    RedisKeys.TOKEN_BLACKLIST + token, "1", ttl, TimeUnit.MILLISECONDS);
         }
     }
 
     public boolean isBlacklisted(String token) {
-        return Boolean.TRUE.equals(stringRedisTemplate.hasKey(BLACKLIST_PREFIX + token));
+        return Boolean.TRUE.equals(stringRedisTemplate.hasKey(RedisKeys.TOKEN_BLACKLIST + token));
     }
 }

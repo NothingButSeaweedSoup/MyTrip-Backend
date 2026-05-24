@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 控制台输出 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Redis 独立日志文件 -->
+    <appender name="REDIS-FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/redis.log</file>
+        <createMissingDirectories>true</createMissingDirectories>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/redis.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Redis 框架日志：只写文件，控制台不显示 -->
+    <logger name="io.lettuce" level="INFO" additivity="false">
+        <appender-ref ref="REDIS-FILE"/>
+    </logger>
+    <logger name="io.lettuce.core" level="INFO" additivity="false">
+        <appender-ref ref="REDIS-FILE"/>
+    </logger>
+    <logger name="io.netty" level="INFO" additivity="false">
+        <appender-ref ref="REDIS-FILE"/>
+    </logger>
+    <logger name="org.springframework.data.redis" level="INFO" additivity="false">
+        <appender-ref ref="REDIS-FILE"/>
+    </logger>
+    <logger name="org.springframework.boot.autoconfigure.data.redis" level="INFO" additivity="false">
+        <appender-ref ref="REDIS-FILE"/>
+    </logger>
+
+    <!-- CounterSyncTask：纯 Redis 同步任务，只写文件 -->
+    <logger name="com.backend.task.CounterSyncTask" level="INFO" additivity="false">
+        <appender-ref ref="REDIS-FILE"/>
+    </logger>
+
+    <!-- 应用层 Redis 日志：只写文件，控制台不显示 -->
+    <logger name="redis.app" level="INFO" additivity="false">
+        <appender-ref ref="REDIS-FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

@@ -17,4 +17,10 @@ public class UserVO {
     private String budgetLevel;
     private Integer role;
     private Date createTime;
+
+    /** 帖子数 */
+    private Long postCount;
+
+    /** 收藏数 */
+    private Long favoriteCount;
 }

@@ -43,6 +43,14 @@ public class UserController {
         return Result.success();
     }
 
+    @PutMapping("/profile")
+    public Result<Void> updateProfile(@Valid @RequestBody ProfileUpdateRequest request,
+                                       Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        userService.updateProfile(userId, request);
+        return Result.success();
+    }
+
     @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.substring(7);

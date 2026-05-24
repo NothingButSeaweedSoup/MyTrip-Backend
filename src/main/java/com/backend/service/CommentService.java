@@ -3,6 +3,7 @@ package com.backend.service;
 import com.backend.dto.CommentCreateRequest;
 import com.backend.dto.CommentVO;
 import com.backend.entity.Comment;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
@@ -20,4 +21,7 @@ public interface CommentService extends IService<Comment> {
 
     /** 点赞/取消点赞 */
     long toggleLike(Long userId, Long commentId, String action);
+
+    /** 待审核评论列表 */
+    IPage<Comment> listPendingComments(int page, int pageSize);
 }

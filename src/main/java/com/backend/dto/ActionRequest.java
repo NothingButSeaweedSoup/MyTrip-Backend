@@ -5,9 +5,9 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
-public class LikeRequest {
+public class ActionRequest {
 
     @NotBlank
-    @Pattern(regexp = "like|unlike", message = "action 仅限 like / unlike")
+    @Pattern(regexp = "like|unlike|favorite|unfavorite", message = "action 仅限 like / unlike / favorite / unfavorite")
     private String action;
 }

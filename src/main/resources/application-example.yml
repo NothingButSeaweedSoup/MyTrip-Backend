@@ -28,3 +28,8 @@ jwt:
 
 upload:
   path: ${UPLOAD_PATH:/data/uploads}
+
+app:
+  images-path: ${IMAGES_PATH:sql/data/images}
+
+base-img-url: ${BASE_IMG_URL:http://localhost:8180/images}

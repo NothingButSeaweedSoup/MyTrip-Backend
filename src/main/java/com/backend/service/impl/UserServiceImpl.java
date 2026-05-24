@@ -3,9 +3,14 @@ package com.backend.service.impl;
 import com.backend.common.BusinessException;
 import com.backend.common.UnauthorizedException;
 import com.backend.dto.*;
+import com.backend.entity.Favorite;
+import com.backend.entity.Post;
 import com.backend.entity.User;
 import com.backend.mapper.UserMapper;
+import com.backend.service.FavoriteService;
+import com.backend.service.PostService;
 import com.backend.service.UserService;
+import com.backend.util.ImageUrlUtil;
 import com.backend.util.JwtUtil;
 import com.backend.util.TokenBlacklistUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -13,6 +18,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +37,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private TokenBlacklistUtil tokenBlacklistUtil;
+
+    @Autowired
+    private ImageUrlUtil imageUrlUtil;
+
+    @Lazy
+    @Autowired
+    private PostService postService;
+
+    @Lazy
+    @Autowired
+    private FavoriteService favoriteService;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -80,7 +97,30 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        return toUserVO(user);
+        UserVO vo = toUserVO(user);
+        vo.setPostCount(postService.lambdaQuery().eq(Post::getAuthorId, userId)
+                .ne(Post::getStatus, 4).count());
+        vo.setFavoriteCount(favoriteService.lambdaQuery()
+                .eq(Favorite::getUserId, userId).count());
+        return vo;
+    }
+
+    @Override
+    @Transactional
+    public void updateProfile(Long userId, ProfileUpdateRequest request) {
+        User user = new User();
+        user.setUserId(userId);
+        if (request.getAvatar() != null) user.setAvatar(request.getAvatar());
+        if (request.getBio() != null) user.setBio(request.getBio());
+        if (request.getPreferredTags() != null) {
+            try {
+                user.setPreferredTags(objectMapper.writeValueAsString(request.getPreferredTags()));
+            } catch (JsonProcessingException e) {
+                throw new BusinessException("偏好标签格式错误");
+            }
+        }
+        if (request.getBudgetLevel() != null) user.setBudgetLevel(request.getBudgetLevel());
+        updateById(user);
     }
 
     @Override
@@ -102,6 +142,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public void logout(String token) {
         tokenBlacklistUtil.blacklist(token, jwtUtil.getExpirationFromToken(token));
+    }
+
+    @Override
+    public List<UserVO> listUsers(Long adminUserId) {
+        checkAdminRole(adminUserId);
+        List<User> users = list();
+        return users.stream().map(this::toUserVO).toList();
+    }
+
+    @Override
+    @Transactional
+    public void updateUserRole(Long adminUserId, Long userId, Integer role) {
+        checkAdminRole(adminUserId);
+        if (role == null || (role != 0 && role != 1 && role != 9)) {
+            throw new BusinessException("无效的角色值");
+        }
+        if (adminUserId.equals(userId)) {
+            throw new BusinessException("不能修改自己的角色");
+        }
+        User user = getById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        User update = new User();
+        update.setUserId(userId);
+        update.setRole(role);
+        updateById(update);
+    }
+
+    private void checkAdminRole(Long userId) {
+        User user = getById(userId);
+        if (user == null || user.getRole() != 9) {
+            throw new UnauthorizedException("无管理员权限");
+        }
     }
 
     private UserVO toUserVO(User user) {

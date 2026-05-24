@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/post")
 public class PostController {
@@ -33,8 +35,10 @@ public class PostController {
     }
 
     @GetMapping("/{postId}")
-    public Result<PostVO> detail(@PathVariable Long postId) {
-        return Result.success(postService.getPostDetail(postId));
+    public Result<PostVO> detail(@PathVariable Long postId,
+                                Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return Result.success(postService.getPostDetail(postId, userId));
     }
 
     @PutMapping("/{postId}")
@@ -56,10 +60,25 @@ public class PostController {
 
     @PostMapping("/{postId}/like")
     public Result<Long> like(@PathVariable Long postId,
-                             @Valid @RequestBody LikeRequest request,
+                             @Valid @RequestBody ActionRequest request,
                              Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         long likes = postService.toggleLike(userId, postId, request.getAction());
         return Result.success(likes);
+    }
+
+    @GetMapping("/my-posts")
+    public Result<IPage<PostVO>> myPosts(@RequestParam(defaultValue = "1") int page,
+                                         @RequestParam(defaultValue = "10") int pageSize,
+                                         Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        return Result.success(postService.listMyPosts(userId, page, pageSize));
+    }
+
+    @GetMapping("/by-ids")
+    public Result<List<PostVO>> byIds(@RequestParam List<Long> ids,
+                                       Authentication auth) {
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
+        return Result.success(postService.listPostsByIds(ids, userId));
     }
 }

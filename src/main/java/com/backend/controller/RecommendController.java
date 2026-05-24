@@ -21,7 +21,7 @@ public class RecommendController {
     public Result<IPage<PostVO>> feed(@RequestParam(defaultValue = "1") int page,
                                       @RequestParam(defaultValue = "20") int pageSize,
                                       Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = auth != null ? (Long) auth.getPrincipal() : null;
         return Result.success(recommendService.getFeed(userId, page, pageSize));
     }
 

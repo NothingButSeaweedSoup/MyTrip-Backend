@@ -24,6 +24,12 @@ public class PostVO {
     private String authorName;
     private String authorAvatar;
 
+    /** 当前用户是否已点赞 */
+    private Boolean liked;
+
+    /** 当前用户是否已收藏 */
+    private Boolean favorited;
+
     /** 图片URL列表 */
     private List<String> images;
 

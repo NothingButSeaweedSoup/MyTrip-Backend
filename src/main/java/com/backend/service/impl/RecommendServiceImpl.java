@@ -27,7 +27,7 @@ public class RecommendServiceImpl implements RecommendService {
         wrapper.eq(Post::getStatus, 1)
                .last("ORDER BY RAND()");
         Page<Post> postPage = postService.page(new Page<>(page, pageSize), wrapper);
-        return postPage.convert(postService::toPostVO);
+        return postPage.convert(p -> postService.toPostVO(p, userId));
     }
 
     @Override

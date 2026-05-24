@@ -40,7 +40,7 @@ public class CommentController {
 
     @PostMapping("/{commentId}/like")
     public Result<Long> like(@PathVariable Long commentId,
-                             @Valid @RequestBody LikeRequest request,
+                             @Valid @RequestBody ActionRequest request,
                              Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         long likes = commentService.toggleLike(userId, commentId, request.getAction());
