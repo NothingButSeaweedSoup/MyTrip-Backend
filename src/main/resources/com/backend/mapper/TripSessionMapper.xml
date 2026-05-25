@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.backend.mapper.TripSessionMapper">
+
+    <resultMap id="BaseResultMap" type="com.backend.entity.TripSession">
+        <id property="sessionId" column="session_id"/>
+        <result property="planId" column="plan_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="title" column="title"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT session_id, plan_id, user_id, title, create_time, update_time
+        FROM trip_session
+        WHERE user_id = #{userId}
+        ORDER BY update_time DESC
+    </select>
+</mapper>

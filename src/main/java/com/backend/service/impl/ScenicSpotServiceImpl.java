@@ -11,10 +11,19 @@ import org.springframework.stereotype.Service;
 * @description 针对表【scenic_spot(景点表)】的数据库操作Service实现
 * @createDate 2026-05-16 00:16:36
 */
+import java.util.List;
+
 @Service
 public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicSpot>
-    implements ScenicSpotService{
+    implements ScenicSpotService {
 
+    @Override
+    public List<ScenicSpot> listByCity(String city) {
+        return lambdaQuery()
+                .eq(ScenicSpot::getCity, city)
+                .eq(ScenicSpot::getStatus, 0)
+                .list();
+    }
 }
 
 

@@ -8,6 +8,9 @@ import com.baomidou.mybatisplus.extension.service.IService;
 * @description 针对表【scenic_spot(景点表)】的数据库操作Service
 * @createDate 2026-05-16 00:16:36
 */
+import java.util.List;
+
 public interface ScenicSpotService extends IService<ScenicSpot> {
 
+    List<ScenicSpot> listByCity(String city);
 }

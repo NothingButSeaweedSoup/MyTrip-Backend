@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.backend.mapper.TripMessageMapper">
+
+    <resultMap id="BaseResultMap" type="com.backend.entity.TripMessage">
+        <id property="messageId" column="message_id"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="role" column="role"/>
+        <result property="content" column="content"/>
+        <result property="toolName" column="tool_name"/>
+        <result property="toolResult" column="tool_result"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectBySessionId" resultMap="BaseResultMap">
+        SELECT message_id, session_id, role, content, tool_name, tool_result, create_time
+        FROM trip_message
+        WHERE session_id = #{sessionId}
+        ORDER BY create_time ASC
+    </select>
+</mapper>

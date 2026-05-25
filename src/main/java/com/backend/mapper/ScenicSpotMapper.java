@@ -2,6 +2,7 @@ package com.backend.mapper;
 
 import com.backend.entity.ScenicSpot;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Param;
 
 /**
 * @author Administrator
@@ -11,6 +12,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 */
 public interface ScenicSpotMapper extends BaseMapper<ScenicSpot> {
 
+    java.util.List<ScenicSpot> selectByCity(@Param("city") String city);
 }
 
 

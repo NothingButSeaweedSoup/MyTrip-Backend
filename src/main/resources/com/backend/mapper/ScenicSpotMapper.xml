@@ -28,4 +28,10 @@
         description,tags,rating,visit_duration,open_time,
         phone,cover_image,status,create_time,update_time
     </sql>
+
+    <select id="selectByCity" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM scenic_spot
+        WHERE city = #{city} AND status = 0
+    </select>
 </mapper>
