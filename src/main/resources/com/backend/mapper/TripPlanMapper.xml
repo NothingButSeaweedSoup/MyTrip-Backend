@@ -7,19 +7,18 @@
     <resultMap id="BaseResultMap" type="com.backend.entity.TripPlan">
             <id property="planId" column="plan_id" />
             <result property="userId" column="user_id" />
-            <result property="destination" column="destination" />
+            <result property="title" column="title" />
             <result property="days" column="days" />
             <result property="preferences" column="preferences" />
             <result property="budget" column="budget" />
             <result property="startDate" column="start_date" />
-            <result property="itinerary" column="itinerary" />
             <result property="mapPolyline" column="map_polyline" />
             <result property="weatherInfo" column="weather_info" />
             <result property="createTime" column="create_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        plan_id,user_id,destination,days,preferences,budget,
-        start_date,itinerary,map_polyline,weather_info,create_time
+        plan_id,user_id,title,days,preferences,budget,
+        start_date,map_polyline,weather_info,create_time
     </sql>
 </mapper>

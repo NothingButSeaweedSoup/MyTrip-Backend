@@ -2,7 +2,7 @@ package com.backend.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
+
 import lombok.Data;
 
 import java.util.List;
@@ -10,8 +10,7 @@ import java.util.List;
 @Data
 public class ItineraryRequest {
 
-    @NotBlank(message = "城市不能为空")
-    private String city = "广州";
+    private List<String> cities;
 
     @Min(1) @Max(7)
     private int days = 2;

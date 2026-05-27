@@ -1,13 +1,15 @@
 package com.backend.service;
 
-import com.backend.dto.ChatResponse;
+import com.backend.entity.TripMessage;
 import com.backend.entity.TripSession;
+
+import java.util.List;
 
 public interface TripChatService {
 
     TripSession createSession(Long userId, String city);
 
-    ChatResponse chat(Long sessionId, Long userId, String message);
+    String chat(Long sessionId, Long userId, String message);
 
-    ChatResponse getHistory(Long sessionId);
+    List<TripMessage> getMessages(Long sessionId);
 }

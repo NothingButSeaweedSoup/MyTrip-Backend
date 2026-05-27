@@ -21,4 +21,9 @@ public class TripSessionServiceImpl
     public List<TripSession> listByUser(Long userId) {
         return sessionMapper.selectByUserId(userId);
     }
+
+    @Override
+    public Long findUserIdBySessionId(Long sessionId) {
+        return sessionMapper.findUserIdBySessionId(sessionId);
+    }
 }

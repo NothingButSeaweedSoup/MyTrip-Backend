@@ -18,4 +18,10 @@
         WHERE user_id = #{userId}
         ORDER BY update_time DESC
     </select>
+
+    <select id="findUserIdBySessionId" resultType="java.lang.Long">
+        SELECT user_id
+        FROM trip_session
+        WHERE session_id = #{sessionId}
+    </select>
 </mapper>

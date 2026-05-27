@@ -9,4 +9,6 @@ import java.util.List;
 public interface TripSessionMapper extends BaseMapper<TripSession> {
 
     List<TripSession> selectByUserId(@Param("userId") Long userId);
+
+    Long findUserIdBySessionId(@Param("sessionId") Long sessionId);
 }

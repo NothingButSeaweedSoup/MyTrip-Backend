@@ -42,11 +42,9 @@ public class TripChatMemoryStore implements ChatMemoryStore {
         Long sid = toLong(memoryId);
         if (sid == null) return;
 
-        // 清空旧记录
         messageMapper.delete(new LambdaQueryWrapper<TripMessage>()
                 .eq(TripMessage::getSessionId, sid));
 
-        // 批量写入
         for (ChatMessage msg : messages) {
             TripMessage row = toRow(sid, msg);
             if (row != null) messageMapper.insert(row);
@@ -61,8 +59,6 @@ public class TripChatMemoryStore implements ChatMemoryStore {
                 .eq(TripMessage::getSessionId, sid));
     }
 
-    // --- 转换 ---
-
     private static Long toLong(Object id) {
         if (id == null) return null;
         try { return Long.valueOf(id.toString()); }
@@ -73,14 +69,18 @@ public class TripChatMemoryStore implements ChatMemoryStore {
         return switch (row.getRole()) {
             case "user" -> new UserMessage(row.getContent());
             case "ai" -> new AiMessage(row.getContent());
-            case "tool" -> ToolExecutionResultMessage.from(
-                    "", row.getToolName(), row.getToolResult());
             case "system" -> new SystemMessage(row.getContent());
             default -> null;
         };
     }
 
     private static TripMessage toRow(Long sessionId, ChatMessage msg) {
+        // 跳过系统消息——它是 prompt 模板，不是对话内容
+        if (msg instanceof SystemMessage) return null;
+        // 跳过工具消息——内部 tool_calls 元数据无法无损持久化
+        if (msg instanceof ToolExecutionResultMessage) return null;
+        if (msg instanceof AiMessage ai && ai.hasToolExecutionRequests()) return null;
+
         TripMessage row = new TripMessage();
         row.setSessionId(sessionId);
         switch (msg) {
@@ -91,12 +91,6 @@ public class TripChatMemoryStore implements ChatMemoryStore {
             case AiMessage m -> {
                 row.setRole("ai");
                 row.setContent(m.text());
-            }
-            case ToolExecutionResultMessage m -> {
-                row.setRole("tool");
-                row.setToolName(m.toolName());
-                row.setToolResult(m.text());
-                row.setContent("");
             }
             case SystemMessage m -> {
                 row.setRole("system");

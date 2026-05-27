@@ -8,4 +8,6 @@ import java.util.List;
 public interface TripSessionService extends IService<TripSession> {
 
     List<TripSession> listByUser(Long userId);
+
+    Long findUserIdBySessionId(Long sessionId);
 }
