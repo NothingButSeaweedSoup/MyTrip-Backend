@@ -10,6 +10,16 @@ import java.util.List;
 
 public interface PostMapper extends BaseMapper<Post> {
 
+    /** 批量更新热度分 */
+    @Update("UPDATE post SET hot_score = ROUND(" +
+            "LOG10(GREATEST(views, 0) + 1) * 0.3 + " +
+            "LOG10(GREATEST(likes, 0) + 1) * 0.4 + " +
+            "LOG10(GREATEST(comment_count, 0) + 1) * 0.2 + " +
+            "(1 / (DATEDIFF(NOW(), create_time) + 3)) * 0.1" +
+            ", 4), score_updated_at = NOW() " +
+            "WHERE status = 1 AND (score_updated_at IS NULL OR score_updated_at < NOW() - INTERVAL 30 MINUTE)")
+    int batchUpdateHotScore();
+
     @Select("SELECT * FROM post WHERE hash_id = #{hashId}")
     Post selectByHashId(@Param("hashId") String hashId);
 

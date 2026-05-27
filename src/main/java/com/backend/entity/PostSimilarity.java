@@ -1,5 +1,6 @@
 package com.backend.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.util.Date;
 import lombok.Data;
@@ -29,6 +30,7 @@ public class PostSimilarity {
     /**
      * 排序序号 (1~N)
      */
+    @TableField("`rank`")
     private Integer rank;
 
     /**

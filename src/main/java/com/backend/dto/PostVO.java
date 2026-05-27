@@ -1,13 +1,17 @@
 package com.backend.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PostVO {
     private Long postId;
     private String hashId;
@@ -44,6 +48,8 @@ public class PostVO {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TagInfo {
         private Integer tagId;
         private String name;

@@ -9,6 +9,9 @@ public interface PostAuditRecordService extends IService<PostAuditRecord> {
     /** 审核帖子（通过/驳回），记录审核日志 */
     void auditPost(Long auditorId, Long postId, String action, String remark);
 
+    /** 自动审核帖子，记录审核日志（auditType=0） */
+    void autoAuditPost(Long postId, int action, String reason);
+
     /** 审核评论（通过/驳回），记录审核日志 */
     void auditComment(Long auditorId, Long commentId, String action, String remark);
 }

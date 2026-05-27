@@ -63,6 +63,35 @@ public class PostAuditRecordServiceImpl
 
     @Override
     @Transactional
+    public void autoAuditPost(Long postId, int action, String reason) {
+        Post post = postService.getById(postId);
+        if (post == null) return;
+
+        int newStatus;
+        switch (action) {
+            case 1 -> newStatus = 1;  // 通过
+            case 2 -> newStatus = 2;  // 驳回
+            default -> newStatus = 0; // 转人工，状态不变
+        }
+
+        if (newStatus != 0) {
+            post.setStatus(newStatus);
+            postService.updateById(post);
+        }
+
+        PostAuditRecord record = new PostAuditRecord();
+        record.setPostId(postId);
+        record.setAuditorId(null);
+        record.setAuditType(0); // 自动
+        record.setAction(action);
+        record.setReason(reason);
+        record.setOldStatus(0);
+        record.setNewStatus(newStatus);
+        save(record);
+    }
+
+    @Override
+    @Transactional
     public void auditComment(Long auditorId, Long commentId, String action, String remark) {
         checkAuditRole(auditorId);
 

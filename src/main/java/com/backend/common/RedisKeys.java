@@ -16,6 +16,7 @@ public final class RedisKeys {
     public static final String TOKEN_BLACKLIST = "token:blacklist:";
     public static final String RATE_LIMIT = "rate_limit:";
     public static final String REVIEW_LOCK = "review:lock:";
+    public static final String RECOMMEND_FEED = "rec:feed:";
 
     private RedisKeys() {}
 }

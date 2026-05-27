@@ -22,6 +22,8 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -74,6 +76,10 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
     @Autowired
     private PostEmbeddingGenerator postEmbeddingGenerator;
+
+    @Lazy
+    @Autowired
+    private ReviewPipeline reviewPipeline;
 
     @Value("${upload.path:/data/uploads}")
     private String uploadPath;
@@ -137,6 +143,16 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
 
         // 异步生成帖子嵌入向量
         postEmbeddingGenerator.generateEmbeddingAsync(post.getPostId());
+
+        // 事务提交后再触发自动审核（避免异步线程读不到未提交的帖子）
+        Long finalPostId = post.getPostId();
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        reviewPipeline.autoReview(finalPostId);
+                    }
+                });
 
         return post.getPostId();
     }
