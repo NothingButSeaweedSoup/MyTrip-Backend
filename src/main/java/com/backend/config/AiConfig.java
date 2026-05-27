@@ -33,7 +33,7 @@ public class AiConfig {
                 .temperature(0.2)
                 .maxTokens(2000)
                 .timeout(Duration.ofSeconds(60))
-                .maxRetries(2)
+                .maxRetries(1)
                 .httpClientBuilder(new OkHttpClientBuilder())
                 .customParameters(Map.of("thinking", Map.of("type", "disabled")))
                 .logRequests(false)

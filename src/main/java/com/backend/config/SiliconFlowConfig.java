@@ -21,14 +21,18 @@ public class SiliconFlowConfig {
     @Value("${ai.siliconflow.embedding-model}")
     private String embeddingModel;
 
+    @Value("${ai.siliconflow.embedding-dimensions:256}")
+    private int embeddingDimensions;
+
     @Bean
     public EmbeddingModel siliconFlowEmbeddingModel() {
         return OpenAiEmbeddingModel.builder()
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .modelName(embeddingModel)
-                .timeout(Duration.ofSeconds(30))
-                .maxRetries(2)
+                .dimensions(embeddingDimensions)
+                .timeout(Duration.ofSeconds(120))
+                .maxRetries(3)
                 .httpClientBuilder(new OkHttpClientBuilder())
                 .logRequests(false)
                 .logResponses(false)

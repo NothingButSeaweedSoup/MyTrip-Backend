@@ -72,6 +72,9 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
     @Autowired
     private FavoriteService favoriteService;
 
+    @Autowired
+    private PostEmbeddingGenerator postEmbeddingGenerator;
+
     @Value("${upload.path:/data/uploads}")
     private String uploadPath;
 
@@ -131,6 +134,9 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
             savePostTags(post.getPostId(), request.getTagIds());
         }
+
+        // 异步生成帖子嵌入向量
+        postEmbeddingGenerator.generateEmbeddingAsync(post.getPostId());
 
         return post.getPostId();
     }
@@ -245,6 +251,9 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
             postTagService.remove(tagWrapper);
             savePostTags(postId, request.getTagIds());
         }
+
+        // 异步重新生成帖子嵌入向量
+        postEmbeddingGenerator.generateEmbeddingAsync(postId);
     }
 
     @Override
