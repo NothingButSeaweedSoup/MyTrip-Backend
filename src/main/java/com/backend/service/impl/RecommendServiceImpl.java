@@ -1,7 +1,10 @@
 package com.backend.service.impl;
 
+import com.backend.common.BusinessException;
 import com.backend.common.RedisKeys;
 import com.backend.dto.PostVO;
+import com.backend.dto.RecommendConfigUpdateRequest;
+import com.backend.dto.RecommendConfigVO;
 import com.backend.entity.Post;
 import com.backend.entity.PostSimilarity;
 import com.backend.entity.PostTag;
@@ -17,8 +20,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -31,16 +36,16 @@ public class RecommendServiceImpl implements RecommendService {
 
     private static final Logger log = LoggerFactory.getLogger(RecommendServiceImpl.class);
 
-    // === 召回数量配置 ===
-    private static final int TAG_MATCH_LIMIT = 500;
-    private static final int HOT_LIMIT = 500;
-    private static final int ITEM_CF_LIMIT = 200;
+    // === 默认召回数量配置 ===
+    private static final int DEFAULT_TAG_MATCH_LIMIT = 500;
+    private static final int DEFAULT_HOT_LIMIT = 500;
+    private static final int DEFAULT_ITEM_CF_LIMIT = 200;
 
-    // === 排序权重 ===
-    private static final double WEIGHT_HOT = 0.4;
-    private static final double WEIGHT_TAG = 0.3;
-    private static final double WEIGHT_FRESH = 0.2;
-    private static final double WEIGHT_DIVERSITY = 0.1;
+    // === 默认排序权重 ===
+    private static final double DEFAULT_WEIGHT_HOT = 0.4;
+    private static final double DEFAULT_WEIGHT_TAG = 0.3;
+    private static final double DEFAULT_WEIGHT_FRESH = 0.2;
+    private static final double DEFAULT_WEIGHT_DIVERSITY = 0.1;
 
     // === 已推荐衰减 ===
     private static final long SEEN_PENALTY_HOURS = 24;
@@ -50,11 +55,12 @@ public class RecommendServiceImpl implements RecommendService {
     @Value("${search.hybrid.default-semantic-weight:0.5}")
     private double defaultSemanticWeight;
 
-    @Autowired
-    private PostService postService;
-
+    @Lazy
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PostService postService;
 
     @Autowired
     private PostTagService postTagService;
@@ -108,6 +114,70 @@ public class RecommendServiceImpl implements RecommendService {
         userBehaviorService.save(behavior);
     }
 
+    @Override
+    public RecommendConfigVO getConfig() {
+        return RecommendConfigVO.builder()
+                .weightHot(getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_HOT, DEFAULT_WEIGHT_HOT))
+                .weightTag(getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_TAG, DEFAULT_WEIGHT_TAG))
+                .weightFresh(getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_FRESH, DEFAULT_WEIGHT_FRESH))
+                .weightDiversity(getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_DIVERSITY, DEFAULT_WEIGHT_DIVERSITY))
+                .tagMatchLimit(getIntConfig(RedisKeys.RECOMMEND_TAG_MATCH_LIMIT, DEFAULT_TAG_MATCH_LIMIT))
+                .hotLimit(getIntConfig(RedisKeys.RECOMMEND_HOT_LIMIT, DEFAULT_HOT_LIMIT))
+                .itemCfLimit(getIntConfig(RedisKeys.RECOMMEND_ITEM_CF_LIMIT, DEFAULT_ITEM_CF_LIMIT))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void updateConfig(Long adminUserId, RecommendConfigUpdateRequest request) {
+        userService.checkAdminRole(adminUserId);
+        if (request.getWeightHot() != null) {
+            stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_WEIGHT_HOT, String.valueOf(request.getWeightHot()));
+        }
+        if (request.getWeightTag() != null) {
+            stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_WEIGHT_TAG, String.valueOf(request.getWeightTag()));
+        }
+        if (request.getWeightFresh() != null) {
+            stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_WEIGHT_FRESH, String.valueOf(request.getWeightFresh()));
+        }
+        if (request.getWeightDiversity() != null) {
+            stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_WEIGHT_DIVERSITY, String.valueOf(request.getWeightDiversity()));
+        }
+        if (request.getTagMatchLimit() != null) {
+            stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_TAG_MATCH_LIMIT, String.valueOf(request.getTagMatchLimit()));
+        }
+        if (request.getHotLimit() != null) {
+            stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_HOT_LIMIT, String.valueOf(request.getHotLimit()));
+        }
+        if (request.getItemCfLimit() != null) {
+            stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_ITEM_CF_LIMIT, String.valueOf(request.getItemCfLimit()));
+        }
+        stringRedisTemplate.opsForValue().set(RedisKeys.RECOMMEND_CONFIG_UPDATE_TIME, String.valueOf(System.currentTimeMillis()));
+        log.info("推荐配置已更新");
+    }
+
+    private double getDoubleConfig(String key, double defaultValue) {
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value != null && !value.isBlank()) {
+            try {
+                return Double.parseDouble(value);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return defaultValue;
+    }
+
+    private int getIntConfig(String key, int defaultValue) {
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value != null && !value.isBlank()) {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return defaultValue;
+    }
+
     // ==================== 私有方法 ====================
 
     /**
@@ -115,14 +185,18 @@ public class RecommendServiceImpl implements RecommendService {
      * 匿名用户仅使用热门召回。
      */
     private List<Long> doRecommend(Long userId) {
+        int tagMatchLimit = getIntConfig(RedisKeys.RECOMMEND_TAG_MATCH_LIMIT, DEFAULT_TAG_MATCH_LIMIT);
+        int hotLimit = getIntConfig(RedisKeys.RECOMMEND_HOT_LIMIT, DEFAULT_HOT_LIMIT);
+        int itemCfLimit = getIntConfig(RedisKeys.RECOMMEND_ITEM_CF_LIMIT, DEFAULT_ITEM_CF_LIMIT);
+
         if (userId == null) {
-            return hotRecall(HOT_LIMIT);
+            return hotRecall(hotLimit);
         }
 
         // 并行执行三路召回
-        Map<Long, Double> tagScores = tagMatchRecall(userId, TAG_MATCH_LIMIT);
-        Map<Long, Double> hotScores = hotRecallWithScore(HOT_LIMIT);
-        Map<Long, Double> cfScores = itemCfRecall(userId, ITEM_CF_LIMIT);
+        Map<Long, Double> tagScores = tagMatchRecall(userId, tagMatchLimit);
+        Map<Long, Double> hotScores = hotRecallWithScore(hotLimit);
+        Map<Long, Double> cfScores = itemCfRecall(userId, itemCfLimit);
 
         // 合并去重
         Set<Long> allIds = new HashSet<>();
@@ -132,7 +206,7 @@ public class RecommendServiceImpl implements RecommendService {
 
         if (allIds.isEmpty()) {
             log.warn("多路召回无结果，降级到热门: userId={}", userId);
-            return hotRecall(HOT_LIMIT);
+            return hotRecall(DEFAULT_HOT_LIMIT);
         }
 
         return rank(allIds, tagScores, hotScores, cfScores, userId);
@@ -270,13 +344,17 @@ public class RecommendServiceImpl implements RecommendService {
 
     /**
      * 综合排序：
-     *   score = 0.4 × 热度 + 0.3 × 标签匹配 + 0.2 × 新鲜度 + 0.1 × 多样性
+     *   score = weightHot × 热度 + weightTag × 标签匹配 + weightFresh × 新鲜度 + weightDiversity × 多样性
      */
     private List<Long> rank(Set<Long> allIds,
                             Map<Long, Double> tagScores,
                             Map<Long, Double> hotScores,
                             Map<Long, Double> cfScores,
                             Long userId) {
+        double weightHot = getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_HOT, DEFAULT_WEIGHT_HOT);
+        double weightTag = getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_TAG, DEFAULT_WEIGHT_TAG);
+        double weightFresh = getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_FRESH, DEFAULT_WEIGHT_FRESH);
+        double weightDiversity = getDoubleConfig(RedisKeys.RECOMMEND_WEIGHT_DIVERSITY, DEFAULT_WEIGHT_DIVERSITY);
         // 批量查询帖子信息
         List<Post> posts = postService.listByIds(new ArrayList<>(allIds));
         Map<Long, Post> postMap = posts.stream()
@@ -317,9 +395,9 @@ public class RecommendServiceImpl implements RecommendService {
                 }
             }
 
-            double baseScore = WEIGHT_HOT * hotComponent
-                    + WEIGHT_TAG * tagNorm
-                    + WEIGHT_FRESH * freshScore
+            double baseScore = weightHot * hotComponent
+                    + weightTag * tagNorm
+                    + weightFresh * freshScore
                     - seenPenalty;
 
             items.add(new RankItem(postId, baseScore, post.getAuthorId()));
@@ -332,8 +410,8 @@ public class RecommendServiceImpl implements RecommendService {
         Map<Long, Integer> authorCount = new HashMap<>();
         for (RankItem item : items) {
             int cnt = authorCount.merge(item.authorId(), 1, Integer::sum);
-            double diversityBonus = cnt == 1 ? WEIGHT_DIVERSITY
-                    : cnt == 2 ? WEIGHT_DIVERSITY * 0.5
+            double diversityBonus = cnt == 1 ? weightDiversity
+                    : cnt == 2 ? weightDiversity * 0.5
                     : 0.0;
             item.finalScore = item.baseScore + diversityBonus;
         }

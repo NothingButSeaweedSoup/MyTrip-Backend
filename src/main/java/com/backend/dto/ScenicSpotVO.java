@@ -22,4 +22,5 @@ public class ScenicSpotVO {
     private String openTime;
     private String phone;
     private String coverImage;
+    private Integer status;
 }

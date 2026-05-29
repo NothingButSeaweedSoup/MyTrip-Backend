@@ -34,4 +34,16 @@ public interface UserService extends IService<User> {
 
     /** 管理员：修改用户角色 */
     void updateUserRole(Long adminUserId, Long userId, Integer role);
+
+    /** 管理员：封禁/解封用户 */
+    void updateUserStatus(Long adminUserId, Long userId, Integer status);
+
+    /** 检查用户是否为管理员，不是则抛出异常 */
+    void checkAdminRole(Long userId);
+
+    /** 管理员：获取用户详情（含发帖、收藏、行程） */
+    UserDetailVO getUserDetail(Long adminUserId, Long userId);
+
+    /** 管理员：获取仪表盘数据 */
+    DashboardVO getDashboard(Long adminUserId);
 }

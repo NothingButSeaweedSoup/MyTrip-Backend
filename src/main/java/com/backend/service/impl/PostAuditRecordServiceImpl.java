@@ -2,6 +2,7 @@ package com.backend.service.impl;
 
 import com.backend.common.BusinessException;
 import com.backend.common.UnauthorizedException;
+import com.backend.dto.AuditRecordVO;
 import com.backend.entity.Comment;
 import com.backend.entity.Post;
 import com.backend.entity.PostAuditRecord;
@@ -11,8 +12,12 @@ import com.backend.service.CommentService;
 import com.backend.service.PostAuditRecordService;
 import com.backend.service.PostService;
 import com.backend.service.UserService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -110,6 +115,37 @@ public class PostAuditRecordServiceImpl
 
         // 记录审核日志（复用同一张表，post_id 存帖子的ID，不做严格要求）
         // 评论审核目前不记录到 post_audit_record，简化处理
+    }
+
+    @Override
+    public IPage<AuditRecordVO> getAuditHistory(Long adminUserId, int page, int pageSize, String targetType) {
+        userService.checkAdminRole(adminUserId);
+        LambdaQueryWrapper<PostAuditRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByDesc(PostAuditRecord::getCreateTime);
+        IPage<PostAuditRecord> recordPage = page(new Page<>(page, pageSize), wrapper);
+        return recordPage.convert(record -> {
+            String auditorName = "系统";
+            if (record.getAuditorId() != null) {
+                User auditor = userService.getById(record.getAuditorId());
+                auditorName = auditor != null ? auditor.getUsername() : "未知";
+            }
+            String actionStr = switch (record.getAction()) {
+                case 1 -> "通过";
+                case 2 -> "驳回";
+                case 3 -> "转人工";
+                default -> "未知";
+            };
+            return AuditRecordVO.builder()
+                    .id(record.getAuditId())
+                    .targetType("post")
+                    .targetId(record.getPostId())
+                    .targetTitle("")
+                    .decision(actionStr)
+                    .reason(record.getReason())
+                    .auditorName(auditorName)
+                    .createTime(record.getCreateTime())
+                    .build();
+        });
     }
 
     private void checkAuditRole(Long userId) {

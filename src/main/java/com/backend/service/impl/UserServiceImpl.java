@@ -3,16 +3,13 @@ package com.backend.service.impl;
 import com.backend.common.BusinessException;
 import com.backend.common.UnauthorizedException;
 import com.backend.dto.*;
-import com.backend.entity.Favorite;
-import com.backend.entity.Post;
-import com.backend.entity.User;
+import com.backend.entity.*;
 import com.backend.mapper.UserMapper;
-import com.backend.service.FavoriteService;
-import com.backend.service.PostService;
-import com.backend.service.UserService;
+import com.backend.service.*;
 import com.backend.util.ImageUrlUtil;
 import com.backend.util.JwtUtil;
 import com.backend.util.TokenBlacklistUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -23,7 +20,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 @Service
@@ -48,6 +48,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Lazy
     @Autowired
     private FavoriteService favoriteService;
+
+    @Lazy
+    @Autowired
+    private TripPlanService tripPlanService;
+
+    @Lazy
+    @Autowired
+    private CommentService commentService;
+
+    @Lazy
+    @Autowired
+    private ScenicSpotService scenicSpotService;
+
+    @Lazy
+    @Autowired
+    private PostAuditRecordService postAuditRecordService;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -184,11 +200,108 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         updateById(update);
     }
 
-    private void checkAdminRole(Long userId) {
+    @Override
+    @Transactional
+    public void updateUserStatus(Long adminUserId, Long userId, Integer status) {
+        checkAdminRole(adminUserId);
+        if (adminUserId.equals(userId)) {
+            throw new BusinessException("不能封禁自己");
+        }
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException("无效的状态值");
+        }
+        User user = getById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        if (user.getRole() == 9) {
+            throw new BusinessException("不能封禁管理员账号");
+        }
+        User update = new User();
+        update.setUserId(userId);
+        update.setStatus(status);
+        updateById(update);
+    }
+
+    @Override
+    public void checkAdminRole(Long userId) {
         User user = getById(userId);
         if (user == null || user.getRole() != 9) {
             throw new UnauthorizedException("无管理员权限");
         }
+    }
+
+    @Override
+    public UserDetailVO getUserDetail(Long adminUserId, Long userId) {
+        checkAdminRole(adminUserId);
+        User user = getById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        Long postCount = postService.lambdaQuery().eq(Post::getAuthorId, userId).ne(Post::getStatus, 4).count();
+        Long favoriteCount = favoriteService.lambdaQuery().eq(Favorite::getUserId, userId).count();
+        Long tripCount = tripPlanService.lambdaQuery().eq(TripPlan::getUserId, userId).count();
+        List<Post> recentPosts = postService.lambdaQuery()
+                .eq(Post::getAuthorId, userId)
+                .ne(Post::getStatus, 4)
+                .orderByDesc(Post::getCreateTime)
+                .last("LIMIT 5")
+                .list();
+        List<PostVO> postVOs = recentPosts.stream().map(p -> PostVO.builder()
+                .postId(p.getPostId())
+                .title(p.getTitle())
+                .createTime(p.getCreateTime())
+                .build()).toList();
+        List<TripPlan> recentTrips = tripPlanService.lambdaQuery()
+                .eq(TripPlan::getUserId, userId)
+                .orderByDesc(TripPlan::getCreateTime)
+                .last("LIMIT 5")
+                .list();
+        List<ItineraryVO> tripVOs = recentTrips.stream().map(t -> ItineraryVO.builder()
+                .planId(t.getPlanId())
+                .title(t.getTitle())
+                .days(t.getDays())
+                .budget(t.getBudget())
+                .build()).toList();
+        return UserDetailVO.builder()
+                .userId(user.getUserId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .avatar(user.getAvatar())
+                .bio(user.getBio())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .createTime(user.getCreateTime())
+                .postCount(postCount.intValue())
+                .favoriteCount(favoriteCount.intValue())
+                .tripCount(tripCount.intValue())
+                .recentPosts(postVOs)
+                .recentTrips(tripVOs)
+                .build();
+    }
+
+    @Override
+    public DashboardVO getDashboard(Long adminUserId) {
+        checkAdminRole(adminUserId);
+        Long totalUsers = (long) count();
+        Long totalPosts = (long) postService.lambdaQuery().ne(Post::getStatus, 4).count();
+        Long totalScenicSpots = (long) scenicSpotService.count();
+        Long totalComments = (long) commentService.count();
+        LocalDate today = LocalDate.now();
+        Date todayStart = Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Long todayNewUsers = (long) lambdaQuery().ge(User::getCreateTime, todayStart).count();
+        Long todayNewPosts = (long) postService.lambdaQuery().ge(Post::getCreateTime, todayStart).count();
+        Long pendingReviewPosts = (long) postService.lambdaQuery().eq(Post::getStatus, 0).count();
+        return DashboardVO.builder()
+                .totalUsers(totalUsers)
+                .totalPosts(totalPosts)
+                .totalScenicSpots(totalScenicSpots)
+                .totalComments(totalComments)
+                .todayNewUsers(todayNewUsers)
+                .todayNewPosts(todayNewPosts)
+                .pendingReviewPosts(pendingReviewPosts)
+                .pendingReviewComments(0L)
+                .build();
     }
 
     private UserVO toUserVO(User user) {
@@ -209,6 +322,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .preferredTags(tags)
                 .budgetLevel(user.getBudgetLevel())
                 .role(user.getRole())
+                .status(user.getStatus())
                 .createTime(user.getCreateTime())
                 .build();
     }

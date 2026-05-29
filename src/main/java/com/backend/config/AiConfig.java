@@ -6,6 +6,7 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -24,6 +25,15 @@ public class AiConfig {
     @Value("${ai.deepseek.model-name}")
     private String modelName;
 
+    @Value("${ai.vision.api-key:}")
+    private String visionApiKey;
+
+    @Value("${ai.vision.base-url:}")
+    private String visionBaseUrl;
+
+    @Value("${ai.vision.model-name:}")
+    private String visionModelName;
+
     @Bean
     public ChatModel chatModel() {
         return OpenAiChatModel.builder()
@@ -36,6 +46,23 @@ public class AiConfig {
                 .maxRetries(1)
                 .httpClientBuilder(new OkHttpClientBuilder())
                 .customParameters(Map.of("thinking", Map.of("type", "disabled")))
+                .logRequests(false)
+                .logResponses(false)
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "ai.vision.api-key")
+    public ChatModel visionChatModel() {
+        return OpenAiChatModel.builder()
+                .baseUrl(visionBaseUrl)
+                .apiKey(visionApiKey)
+                .modelName(visionModelName)
+                .temperature(0.2)
+                .maxTokens(2000)
+                .timeout(Duration.ofSeconds(120))
+                .maxRetries(1)
+                .httpClientBuilder(new OkHttpClientBuilder())
                 .logRequests(false)
                 .logResponses(false)
                 .build();

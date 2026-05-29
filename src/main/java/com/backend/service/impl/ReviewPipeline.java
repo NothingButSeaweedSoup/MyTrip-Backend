@@ -1,12 +1,16 @@
 package com.backend.service.impl;
 
 import com.backend.entity.Post;
+import com.backend.entity.PostImage;
 import com.backend.entity.User;
 import com.backend.service.AiReviewService;
 import com.backend.service.PostAuditRecordService;
+import com.backend.service.PostImageService;
 import com.backend.service.PostService;
 import com.backend.service.UserService;
 import com.backend.util.ACAutomaton;
+import com.backend.util.ImageUrlUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +19,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 三级自动审核流水线：
@@ -44,6 +50,12 @@ public class ReviewPipeline {
 
     @Autowired
     private PostAuditRecordService auditRecordService;
+
+    @Autowired
+    private PostImageService postImageService;
+
+    @Autowired
+    private ImageUrlUtil imageUrlUtil;
 
     @Async("reviewExecutor")
     public void autoReview(Long postId) {
@@ -75,8 +87,20 @@ public class ReviewPipeline {
             return;
         }
 
-        // 2. AI 审核
-        AiReviewService.AiReviewResult aiResult = aiReviewService.review(post.getTitle(), post.getContent());
+        // 2. AI 审核（含图片）
+        LambdaQueryWrapper<PostImage> imgWrapper = new LambdaQueryWrapper<>();
+        imgWrapper.eq(PostImage::getPostId, postId);
+        List<String> imageUrls = postImageService.list(imgWrapper).stream()
+                .map(PostImage::getUrl)
+                .map(imageUrlUtil::getFullUrl)
+                .collect(Collectors.toList());
+
+        AiReviewService.AiReviewResult aiResult;
+        if (!imageUrls.isEmpty()) {
+            aiResult = aiReviewService.reviewWithImages(post.getTitle(), post.getContent(), imageUrls);
+        } else {
+            aiResult = aiReviewService.review(post.getTitle(), post.getContent());
+        }
 
         int action;
         if (aiResult.isApproved()) {
