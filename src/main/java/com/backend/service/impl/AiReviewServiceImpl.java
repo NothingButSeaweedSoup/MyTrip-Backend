@@ -32,7 +32,7 @@ public class AiReviewServiceImpl implements AiReviewService {
 
     private static final Logger log = LoggerFactory.getLogger(AiReviewServiceImpl.class);
 
-    private static final String DEFAULT_SYSTEM_PROMPT = """
+    private static final String DEFAULT_REVIEW_RULES = """
             你是一个内容审核助手。请审核以下帖子内容，判断是否违规。
 
             审核规则：
@@ -41,6 +41,9 @@ public class AiReviewServiceImpl implements AiReviewService {
             3. 禁止发布广告、垃圾营销信息
             4. 禁止发布人身攻击、辱骂内容
             5. 禁止泄露他人隐私
+            """;
+
+    private static final String REVIEW_FORMAT = """
 
             请返回以下 JSON 格式的审核结果（不要包含其他内容）：
             {"decision": "APPROVED", "reason": "审核理由"}
@@ -51,7 +54,7 @@ public class AiReviewServiceImpl implements AiReviewService {
             - NEED_MANUAL：无法确定，转人工审核
             """;
 
-    private static final String IMAGE_REVIEW_SYSTEM_PROMPT = """
+    private static final String DEFAULT_IMAGE_REVIEW_RULES = """
             你是一个内容审核助手。请审核以下帖子的文本内容和图片，判断是否违规。
 
             审核规则：
@@ -63,6 +66,9 @@ public class AiReviewServiceImpl implements AiReviewService {
             6. 禁止发布血腥暴力、恐怖恶心的图片
             7. 禁止发布含有二维码、联系方式等引流图片
             8. 禁止发布违反法律法规的图片内容
+            """;
+
+    private static final String IMAGE_REVIEW_FORMAT = """
 
             请综合文本和图片内容进行审核，返回以下 JSON 格式的结果（不要包含其他内容）：
             {"decision": "APPROVED", "reason": "审核理由"}
@@ -78,7 +84,8 @@ public class AiReviewServiceImpl implements AiReviewService {
             Pattern.DOTALL);
 
     @Autowired
-    private ChatModel chatModel;
+    @Qualifier("reviewChatModel")
+    private ChatModel reviewChatModel;
 
     @Autowired(required = false)
     @Qualifier("visionChatModel")
@@ -93,15 +100,17 @@ public class AiReviewServiceImpl implements AiReviewService {
     @Value("${ai.vision.max-images:9}")
     private int maxImages;
 
-    private volatile String cachedPrompt;
+    private volatile String cachedRules;
     private volatile long cacheTime;
+    private volatile String cachedImageRules;
+    private volatile long imageCacheTime;
     private static final long CACHE_TTL = 60_000;
 
     @Override
     public AiReviewResult review(String title, String content) {
         try {
-            String prompt = buildPrompt(title, content);
-            String response = chatModel.chat(prompt);
+            String prompt = getFullReviewPrompt() + "\n\n帖子标题：" + title + "\n帖子内容：" + content;
+            String response = reviewChatModel.chat(prompt);
 
             AiReviewResult result = parseResult(response);
             log.info("AI 审核完成: decision={}, reason={}", result.decision(), result.reason());
@@ -127,7 +136,7 @@ public class AiReviewServiceImpl implements AiReviewService {
                     ? imageUrls.subList(0, maxImages) : imageUrls;
 
             List<Content> contents = new ArrayList<>();
-            contents.add(TextContent.from(IMAGE_REVIEW_SYSTEM_PROMPT + "\n\n帖子标题：" + title + "\n帖子内容：" + content));
+            contents.add(TextContent.from(getFullImageReviewPrompt() + "\n\n帖子标题：" + title + "\n帖子内容：" + content));
             for (String url : urls) {
                 contents.add(ImageContent.from(url));
             }
@@ -150,41 +159,80 @@ public class AiReviewServiceImpl implements AiReviewService {
 
     @Override
     public AiPromptVO getPromptConfig() {
-        String currentPrompt = getSystemPrompt();
+        String currentRules = getReviewRules();
         String lastUpdate = redisTemplate.opsForValue().get(RedisKeys.AI_REVIEW_PROMPT_UPDATE_TIME);
         Date updateTime = lastUpdate != null ? new Date(Long.parseLong(lastUpdate)) : null;
         return AiPromptVO.builder()
-                .prompt(currentPrompt)
-                .defaultPrompt(DEFAULT_SYSTEM_PROMPT)
+                .prompt(currentRules)
+                .defaultPrompt(DEFAULT_REVIEW_RULES)
                 .lastUpdateTime(updateTime)
                 .build();
     }
 
     @Override
-    public void updatePrompt(String prompt) {
-        redisTemplate.opsForValue().set(RedisKeys.AI_REVIEW_PROMPT, prompt);
+    public void updatePrompt(String rules) {
+        redisTemplate.opsForValue().set(RedisKeys.AI_REVIEW_PROMPT, rules);
         redisTemplate.opsForValue().set(RedisKeys.AI_REVIEW_PROMPT_UPDATE_TIME,
                 String.valueOf(System.currentTimeMillis()), 365, TimeUnit.DAYS);
-        cachedPrompt = prompt;
+        cachedRules = rules;
         cacheTime = System.currentTimeMillis();
-        log.info("AI 审核提示词已更新");
+        log.info("AI 审核规则已更新");
     }
 
-    private String getSystemPrompt() {
-        if (cachedPrompt != null && System.currentTimeMillis() - cacheTime < CACHE_TTL) {
-            return cachedPrompt;
+    private String getReviewRules() {
+        if (cachedRules != null && System.currentTimeMillis() - cacheTime < CACHE_TTL) {
+            return cachedRules;
         }
-        String prompt = redisTemplate.opsForValue().get(RedisKeys.AI_REVIEW_PROMPT);
-        if (prompt != null && !prompt.isBlank()) {
-            cachedPrompt = prompt;
+        String rules = redisTemplate.opsForValue().get(RedisKeys.AI_REVIEW_PROMPT);
+        if (rules != null && !rules.isBlank()) {
+            cachedRules = rules;
             cacheTime = System.currentTimeMillis();
-            return prompt;
+            return rules;
         }
-        return DEFAULT_SYSTEM_PROMPT;
+        return DEFAULT_REVIEW_RULES;
     }
 
-    private String buildPrompt(String title, String content) {
-        return getSystemPrompt() + "\n\n帖子标题：" + title + "\n帖子内容：" + content;
+    @Override
+    public AiPromptVO getImagePromptConfig() {
+        String currentRules = getImageReviewRules();
+        String lastUpdate = redisTemplate.opsForValue().get(RedisKeys.AI_IMAGE_REVIEW_PROMPT_UPDATE_TIME);
+        Date updateTime = lastUpdate != null ? new Date(Long.parseLong(lastUpdate)) : null;
+        return AiPromptVO.builder()
+                .prompt(currentRules)
+                .defaultPrompt(DEFAULT_IMAGE_REVIEW_RULES)
+                .lastUpdateTime(updateTime)
+                .build();
+    }
+
+    @Override
+    public void updateImagePrompt(String rules) {
+        redisTemplate.opsForValue().set(RedisKeys.AI_IMAGE_REVIEW_PROMPT, rules);
+        redisTemplate.opsForValue().set(RedisKeys.AI_IMAGE_REVIEW_PROMPT_UPDATE_TIME,
+                String.valueOf(System.currentTimeMillis()), 365, TimeUnit.DAYS);
+        cachedImageRules = rules;
+        imageCacheTime = System.currentTimeMillis();
+        log.info("AI 图像审核规则已更新");
+    }
+
+    private String getImageReviewRules() {
+        if (cachedImageRules != null && System.currentTimeMillis() - imageCacheTime < CACHE_TTL) {
+            return cachedImageRules;
+        }
+        String rules = redisTemplate.opsForValue().get(RedisKeys.AI_IMAGE_REVIEW_PROMPT);
+        if (rules != null && !rules.isBlank()) {
+            cachedImageRules = rules;
+            imageCacheTime = System.currentTimeMillis();
+            return rules;
+        }
+        return DEFAULT_IMAGE_REVIEW_RULES;
+    }
+
+    private String getFullReviewPrompt() {
+        return getReviewRules() + REVIEW_FORMAT;
+    }
+
+    private String getFullImageReviewPrompt() {
+        return getImageReviewRules() + IMAGE_REVIEW_FORMAT;
     }
 
     AiReviewResult parseResult(String json) {

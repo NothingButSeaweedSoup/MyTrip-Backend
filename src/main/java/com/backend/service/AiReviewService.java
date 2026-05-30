@@ -23,11 +23,17 @@ public interface AiReviewService {
      */
     AiReviewResult reviewWithImages(String title, String content, List<String> imageUrls);
 
-    /** 获取当前提示词配置 */
+    /** 获取文本审核提示词 */
     AiPromptVO getPromptConfig();
 
-    /** 更新审核提示词 */
+    /** 更新文本审核提示词 */
     void updatePrompt(String prompt);
+
+    /** 获取图像审核提示词 */
+    AiPromptVO getImagePromptConfig();
+
+    /** 更新图像审核提示词 */
+    void updateImagePrompt(String prompt);
 
     record AiReviewResult(String decision, String reason) {
         public static final String APPROVED = "APPROVED";

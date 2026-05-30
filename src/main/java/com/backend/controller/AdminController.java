@@ -34,6 +34,12 @@ public class AdminController {
     @Autowired
     private PostAuditRecordService postAuditRecordService;
 
+    @Autowired
+    private SensitiveWordService sensitiveWordService;
+
+    @Autowired
+    private ModelConfigService modelConfigService;
+
     // ========== 用户管理 ==========
 
     @GetMapping("/users")
@@ -136,18 +142,34 @@ public class AdminController {
     // ========== AI审核配置 ==========
 
     @GetMapping("/ai-prompts")
-    public Result<AiPromptVO> getAiPrompts(Authentication auth) {
+    public Result<AiPromptVO> getTextPrompt(Authentication auth) {
         Long adminUserId = (Long) auth.getPrincipal();
         userService.checkAdminRole(adminUserId);
         return Result.success(aiReviewService.getPromptConfig());
     }
 
     @PutMapping("/ai-prompts")
-    public Result<Void> updateAiPrompts(@Valid @RequestBody AiPromptUpdateRequest request,
-                                        Authentication auth) {
+    public Result<Void> updateTextPrompt(@Valid @RequestBody AiPromptUpdateRequest request,
+                                         Authentication auth) {
         Long adminUserId = (Long) auth.getPrincipal();
         userService.checkAdminRole(adminUserId);
         aiReviewService.updatePrompt(request.getPrompt());
+        return Result.success();
+    }
+
+    @GetMapping("/ai-prompts/image")
+    public Result<AiPromptVO> getImagePrompt(Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        return Result.success(aiReviewService.getImagePromptConfig());
+    }
+
+    @PutMapping("/ai-prompts/image")
+    public Result<Void> updateImagePrompt(@Valid @RequestBody AiPromptUpdateRequest request,
+                                          Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        aiReviewService.updateImagePrompt(request.getPrompt());
         return Result.success();
     }
 
@@ -204,5 +226,58 @@ public class AdminController {
     public Result<DashboardVO> getDashboard(Authentication auth) {
         Long adminUserId = (Long) auth.getPrincipal();
         return Result.success(userService.getDashboard(adminUserId));
+    }
+
+    // ========== 敏感词管理 ==========
+
+    @GetMapping("/sensitive-words")
+    public Result<SensitiveWordListVO> listSensitiveWords(Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        return Result.success(sensitiveWordService.listWords());
+    }
+
+    @PostMapping("/sensitive-words")
+    public Result<Void> addSensitiveWord(@Valid @RequestBody SensitiveWordAddRequest request,
+                                         Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        sensitiveWordService.addWord(request.getWord());
+        return Result.success();
+    }
+
+    @DeleteMapping("/sensitive-words")
+    public Result<Void> removeSensitiveWord(@RequestParam String word,
+                                            Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        sensitiveWordService.removeWord(word);
+        return Result.success();
+    }
+
+    @PostMapping("/sensitive-words/reload")
+    public Result<Void> reloadSensitiveWords(Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        sensitiveWordService.reload();
+        return Result.success();
+    }
+
+    // ========== 模型配置管理 ==========
+
+    @GetMapping("/model-config")
+    public Result<ModelConfigVO> getModelConfig(Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        return Result.success(modelConfigService.getConfig());
+    }
+
+    @PutMapping("/model-config")
+    public Result<Void> updateModelConfig(@Valid @RequestBody ModelConfigUpdateRequest request,
+                                          Authentication auth) {
+        Long adminUserId = (Long) auth.getPrincipal();
+        userService.checkAdminRole(adminUserId);
+        modelConfigService.updateConfig(request);
+        return Result.success();
     }
 }

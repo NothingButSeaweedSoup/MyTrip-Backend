@@ -19,6 +19,8 @@ public final class RedisKeys {
     public static final String RECOMMEND_FEED = "rec:feed:";
     public static final String AI_REVIEW_PROMPT = "admin:ai:review_prompt";
     public static final String AI_REVIEW_PROMPT_UPDATE_TIME = "admin:ai:review_prompt_update_time";
+    public static final String AI_IMAGE_REVIEW_PROMPT = "admin:ai:image_review_prompt";
+    public static final String AI_IMAGE_REVIEW_PROMPT_UPDATE_TIME = "admin:ai:image_review_prompt_update_time";
     public static final String RECOMMEND_WEIGHT_HOT = "admin:recommend:weight_hot";
     public static final String RECOMMEND_WEIGHT_TAG = "admin:recommend:weight_tag";
     public static final String RECOMMEND_WEIGHT_FRESH = "admin:recommend:weight_fresh";
