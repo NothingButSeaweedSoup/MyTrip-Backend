@@ -21,5 +21,8 @@ public interface TripPlanService extends IService<TripPlan> {
     /** 步骤2: A校对通过后，确认保存到数据库 */
     String confirmPlan(long sessionId);
 
+    /** 根据 sessionId 加载已有行程计划（含日程和地点） */
+    ItineraryVO getPlanBySessionId(Long sessionId);
+
     List<TripPlan> listByUser(Long userId);
 }

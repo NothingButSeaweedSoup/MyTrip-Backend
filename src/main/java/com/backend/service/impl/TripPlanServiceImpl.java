@@ -382,6 +382,56 @@ public class TripPlanServiceImpl extends ServiceImpl<TripPlanMapper, TripPlan>
     }
 
     @Override
+    public ItineraryVO getPlanBySessionId(Long sessionId) {
+        TripSession session = sessionService.getById(sessionId);
+        if (session == null || session.getPlanId() == null) {
+            return null;
+        }
+        TripPlan tp = getById(session.getPlanId());
+        if (tp == null) {
+            return null;
+        }
+        return ItineraryVO.builder()
+                .planId(tp.getPlanId())
+                .title(tp.getTitle())
+                .days(tp.getDays())
+                .budget(tp.getBudget())
+                .weather(tp.getWeatherInfo())
+                .itinerary(buildItineraryFromLocations(tp.getPlanId()))
+                .locations(buildLocationItems(tp.getPlanId()))
+                .build();
+    }
+
+    private List<DayPlan> buildItineraryFromLocations(Long planId) {
+        LambdaQueryWrapper<TripPlanLocation> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TripPlanLocation::getPlanId, planId)
+                .isNotNull(TripPlanLocation::getDayNumber)
+                .orderByAsc(TripPlanLocation::getSortOrder);
+        List<TripPlanLocation> locs = locationMapper.selectList(wrapper);
+
+        Map<Integer, List<TripPlanLocation>> dayMap = locs.stream()
+                .collect(Collectors.groupingBy(TripPlanLocation::getDayNumber));
+
+        return dayMap.keySet().stream().sorted().map(day -> {
+            List<SpotItem> spots = dayMap.get(day).stream().map(l -> SpotItem.builder()
+                    .timeSlot(l.getTimeSlot())
+                    .name(l.getName())
+                    .address(l.getAddress())
+                    .duration(l.getDuration())
+                    .transport(l.getTransport())
+                    .note(l.getDescription())
+                    .lat(l.getLatitude())
+                    .lng(l.getLongitude())
+                    .build()).collect(Collectors.toList());
+            return DayPlan.builder()
+                    .day(day)
+                    .date("第" + day + "天")
+                    .spots(spots)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Override
     public List<TripPlan> listByUser(Long userId) {
         LambdaQueryWrapper<TripPlan> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TripPlan::getUserId, userId)

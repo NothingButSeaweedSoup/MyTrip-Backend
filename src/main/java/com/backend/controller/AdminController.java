@@ -1,16 +1,20 @@
 package com.backend.controller;
 
+import com.backend.common.RedisKeys;
 import com.backend.common.Result;
 import com.backend.dto.*;
+import com.backend.entity.ReviewNotificationEmail;
 import com.backend.service.*;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -278,6 +282,86 @@ public class AdminController {
         Long adminUserId = (Long) auth.getPrincipal();
         userService.checkAdminRole(adminUserId);
         modelConfigService.updateConfig(request);
+        return Result.success();
+    }
+
+    // ========== 审核邮件通知管理 ==========
+
+    @Autowired
+    private ReviewNotificationEmailService reviewEmailService;
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @GetMapping("/review-email-config")
+    public Result<Map<String, Object>> getReviewEmailConfig(Authentication auth) {
+        userService.checkAdminRole((Long) auth.getPrincipal());
+        Map<String, Object> config = new java.util.HashMap<>();
+        config.put("enabled", "true".equals(redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_ENABLED)));
+        config.put("subject", strOr(redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_SUBJECT), "【MyTrip】新的待审核帖子通知"));
+        config.put("smtpHost", strOr(redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_SMTP_HOST), ""));
+        config.put("smtpPort", strOr(redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_SMTP_PORT), "587"));
+        config.put("smtpUsername", strOr(redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_SMTP_USERNAME), ""));
+        config.put("smtpPassword", strOr(redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_SMTP_PASSWORD), ""));
+        config.put("checkIntervalMinutes", Integer.parseInt(strOr(redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_INTERVAL_MINUTES), "5")));
+        return Result.success(config);
+    }
+
+    @PutMapping("/review-email-config")
+    public Result<Void> updateReviewEmailConfig(@RequestBody Map<String, Object> body,
+                                                 Authentication auth) {
+        userService.checkAdminRole((Long) auth.getPrincipal());
+        setIf(body, "enabled", RedisKeys.REVIEW_EMAIL_ENABLED, v -> String.valueOf(v));
+        setIf(body, "subject", RedisKeys.REVIEW_EMAIL_SUBJECT, v -> (String) v);
+        setIf(body, "smtpHost", RedisKeys.REVIEW_EMAIL_SMTP_HOST, v -> (String) v);
+        setIf(body, "smtpPort", RedisKeys.REVIEW_EMAIL_SMTP_PORT, v -> (String) v);
+        setIf(body, "smtpUsername", RedisKeys.REVIEW_EMAIL_SMTP_USERNAME, v -> (String) v);
+        setIf(body, "smtpPassword", RedisKeys.REVIEW_EMAIL_SMTP_PASSWORD, v -> (String) v);
+        setIf(body, "checkIntervalMinutes", RedisKeys.REVIEW_EMAIL_INTERVAL_MINUTES, v -> String.valueOf(v));
+        return Result.success();
+    }
+
+    private String strOr(String val, String defaultVal) {
+        return val != null && !val.isBlank() ? val : defaultVal;
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> void setIf(Map<String, Object> body, String key, String redisKey, java.util.function.Function<Object, String> fn) {
+        if (body.containsKey(key)) {
+            redisTemplate.opsForValue().set(redisKey, fn.apply(body.get(key)));
+        }
+    }
+
+    @GetMapping("/review-email/list")
+    public Result<List<ReviewNotificationEmail>> listReviewEmails(Authentication auth) {
+        userService.checkAdminRole((Long) auth.getPrincipal());
+        return Result.success(reviewEmailService.list());
+    }
+
+    @PostMapping("/review-email")
+    public Result<Void> addReviewEmail(@RequestBody Map<String, Object> body,
+                                        Authentication auth) {
+        userService.checkAdminRole((Long) auth.getPrincipal());
+        Long userId = Long.valueOf(body.get("userId").toString());
+        String email = (String) body.get("email");
+        reviewEmailService.saveOrUpdateEmail(userId, email);
+        return Result.success();
+    }
+
+    @PutMapping("/review-email/{userId}/enabled")
+    public Result<Void> toggleReviewEmail(@PathVariable Long userId,
+                                           @RequestBody Map<String, Object> body,
+                                           Authentication auth) {
+        userService.checkAdminRole((Long) auth.getPrincipal());
+        boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
+        reviewEmailService.setEnabled(userId, enabled);
+        return Result.success();
+    }
+
+    @DeleteMapping("/review-email/{userId}")
+    public Result<Void> deleteReviewEmail(@PathVariable Long userId,
+                                           Authentication auth) {
+        userService.checkAdminRole((Long) auth.getPrincipal());
+        reviewEmailService.removeByUserId(userId);
         return Result.success();
     }
 }

@@ -29,6 +29,14 @@ public final class RedisKeys {
     public static final String RECOMMEND_HOT_LIMIT = "admin:recommend:hot_limit";
     public static final String RECOMMEND_ITEM_CF_LIMIT = "admin:recommend:item_cf_limit";
     public static final String RECOMMEND_CONFIG_UPDATE_TIME = "admin:recommend:config_update_time";
+    public static final String REVIEW_EMAIL_ENABLED = "admin:review_email:enabled";
+    public static final String REVIEW_EMAIL_SUBJECT = "admin:review_email:subject";
+    public static final String REVIEW_EMAIL_SMTP_HOST = "admin:review_email:smtp_host";
+    public static final String REVIEW_EMAIL_SMTP_PORT = "admin:review_email:smtp_port";
+    public static final String REVIEW_EMAIL_SMTP_USERNAME = "admin:review_email:smtp_username";
+    public static final String REVIEW_EMAIL_SMTP_PASSWORD = "admin:review_email:smtp_password";
+    public static final String REVIEW_EMAIL_INTERVAL_MINUTES = "admin:review_email:interval_minutes";
+    public static final String REVIEW_EMAIL_LAST_AUDIT_ID = "review:email:last_audit_id";
 
     private RedisKeys() {}
 }

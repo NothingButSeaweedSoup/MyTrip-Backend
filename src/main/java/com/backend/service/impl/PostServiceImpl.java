@@ -8,6 +8,7 @@ import com.backend.common.UnauthorizedException;
 import com.backend.dto.*;
 import com.backend.entity.*;
 import com.backend.mapper.PostMapper;
+import com.backend.mapper.UserMapper;
 import com.backend.service.*;
 import com.backend.entity.PostAuditRecord;
 import com.backend.task.ViewCountTask;
@@ -52,7 +53,7 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
     private TagService tagService;
 
     @Autowired
-    private UserService userService;
+    private UserMapper userMapper;
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -376,7 +377,7 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
     @Override
     public PostVO toPostVO(Post post, Long userId) {
         // 查询作者
-        User author = userService.getById(post.getAuthorId());
+        User author = userMapper.selectById(post.getAuthorId());
 
         // 查询图片
         LambdaQueryWrapper<PostImage> imgWrapper = new LambdaQueryWrapper<>();

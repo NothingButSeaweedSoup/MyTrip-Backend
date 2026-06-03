@@ -1,15 +1,17 @@
 package com.backend.service.impl;
 
 import com.backend.common.BusinessException;
+import com.backend.common.UnauthorizedException;
 import com.backend.dto.ScenicSpotCreateRequest;
 import com.backend.dto.ScenicSpotEditRequest;
 import com.backend.dto.ScenicSpotVO;
 import com.backend.entity.ScenicSpot;
 import com.backend.entity.SpotTag;
+import com.backend.entity.User;
 import com.backend.mapper.ScenicSpotMapper;
 import com.backend.mapper.SpotTagMapper;
+import com.backend.mapper.UserMapper;
 import com.backend.service.ScenicSpotService;
-import com.backend.service.UserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -18,7 +20,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -39,9 +40,8 @@ public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicS
 
     private static final Logger log = LoggerFactory.getLogger(ScenicSpotServiceImpl.class);
 
-    @Lazy
     @Autowired
-    private UserService userService;
+    private UserMapper userMapper;
 
     @Autowired
     private SpotTagMapper spotTagMapper;
@@ -59,7 +59,7 @@ public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicS
     @Override
     @Transactional
     public Long createSpot(Long adminUserId, ScenicSpotCreateRequest request) {
-        userService.checkAdminRole(adminUserId);
+        checkAdminRole(adminUserId);
         if (lambdaQuery().eq(ScenicSpot::getName, request.getName())
                 .eq(ScenicSpot::getCity, request.getCity()).exists()) {
             throw new BusinessException("该城市下已存在同名景点");
@@ -100,7 +100,7 @@ public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicS
     @Override
     @Transactional
     public void updateSpot(Long adminUserId, Long spotId, ScenicSpotEditRequest request) {
-        userService.checkAdminRole(adminUserId);
+        checkAdminRole(adminUserId);
         ScenicSpot spot = getById(spotId);
         if (spot == null) {
             throw new BusinessException("景点不存在");
@@ -135,7 +135,7 @@ public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicS
 
     @Override
     public IPage<ScenicSpotVO> listSpotsForAdmin(Long adminUserId, String city, String keyword, int page, int pageSize) {
-        userService.checkAdminRole(adminUserId);
+        checkAdminRole(adminUserId);
         LambdaQueryWrapper<ScenicSpot> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(city)) {
             wrapper.eq(ScenicSpot::getCity, city);
@@ -151,7 +151,7 @@ public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicS
     @Override
     @Transactional
     public void updateSpotStatus(Long adminUserId, Long spotId, Integer status) {
-        userService.checkAdminRole(adminUserId);
+        checkAdminRole(adminUserId);
         if (status == null || (status != 0 && status != 1)) {
             throw new BusinessException("无效的状态值");
         }
@@ -168,7 +168,7 @@ public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicS
     @Override
     @Transactional
     public void importSpots(Long adminUserId, MultipartFile file) {
-        userService.checkAdminRole(adminUserId);
+        checkAdminRole(adminUserId);
         String filename = file.getOriginalFilename();
         if (filename == null || !filename.endsWith(".csv")) {
             throw new BusinessException("仅支持CSV文件");
@@ -208,6 +208,13 @@ public class ScenicSpotServiceImpl extends ServiceImpl<ScenicSpotMapper, ScenicS
                 count++;
             }
             log.info("批量导入景点完成，共导入 {} 条", count);
+        }
+    }
+
+    private void checkAdminRole(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null || user.getRole() != 9) {
+            throw new UnauthorizedException("无管理员权限");
         }
     }
 

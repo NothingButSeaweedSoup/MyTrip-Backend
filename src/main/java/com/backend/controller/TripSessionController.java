@@ -3,19 +3,13 @@ package com.backend.controller;
 import com.backend.common.Result;
 import com.backend.dto.ChatResponse;
 import com.backend.dto.ItineraryVO;
-import com.backend.dto.ItineraryVO.DayPlan;
-import com.backend.dto.ItineraryVO.LocationItem;
-import com.backend.dto.ItineraryVO.SpotItem;
 import com.backend.entity.TripMessage;
-import com.backend.entity.TripPlan;
-import com.backend.entity.TripPlanLocation;
 import com.backend.entity.TripSession;
-import com.backend.mapper.TripPlanLocationMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.backend.service.TripChatService;
 import com.backend.service.TripPlanService;
 import com.backend.service.TripSessionService;
 import com.backend.service.ai.TripAgentService;
+import dev.langchain4j.data.message.ChatMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +21,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/trip-session")
@@ -38,22 +31,17 @@ public class TripSessionController {
     @Autowired
     private TripChatService chatService;
     @Autowired
-    private com.backend.service.impl.TripChatServiceImpl chatServiceImpl;
-    @Autowired
     private TripSessionService sessionService;
     @Autowired
     private TripPlanService planService;
     @Autowired
     private TripAgentService agentService;
-    @Autowired
-    private TripPlanLocationMapper locationMapper;
 
     @PostMapping
     public Result<TripSession> create(@RequestBody Map<String, String> body,
                                       Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         String city = body.getOrDefault("city", "广州");
-        // 支持 cities 逗号分隔多城市
         city = body.getOrDefault("cities", city);
         TripSession session = chatService.createSession(userId, city);
         return Result.success(session);
@@ -71,8 +59,7 @@ public class TripSessionController {
         String reply = chatService.chat(id, userId, message);
         List<TripMessage> messages = chatService.getMessages(id);
 
-        ItineraryVO plan = loadPlan(id);
-        logPlanDetection(id, plan);
+        ItineraryVO plan = planService.getPlanBySessionId(id);
 
         return Result.success(ChatResponse.builder()
                 .sessionId(id)
@@ -105,7 +92,7 @@ public class TripSessionController {
 
         new Thread(() -> {
             try {
-                var messages = chatServiceImpl.buildMessages(id, message);
+                List<ChatMessage> messages = chatService.buildMessages(id, message);
                 agentService.run(messages, new TripAgentService.TraceListener() {
                     @Override
                     public void onToolCall(String toolName, String arguments) {
@@ -126,7 +113,7 @@ public class TripSessionController {
                             sendEvent(emitter, "answer_token", answer.substring(i, end));
                             try { Thread.sleep(20); } catch (InterruptedException ignored) {}
                         }
-                        ItineraryVO plan = loadPlan(id);
+                        ItineraryVO plan = planService.getPlanBySessionId(id);
                         if (plan != null) {
                             sendEvent(emitter, "plan", "{\"planId\":" + plan.getPlanId()
                                     + ",\"title\":\"" + jsonStr(plan.getTitle()) + "\"}");
@@ -135,7 +122,7 @@ public class TripSessionController {
                         emitter.complete();
                     }
                 });
-                chatServiceImpl.saveMessages(id, messages);
+                chatService.saveMessages(id, messages);
             } catch (Exception e) {
                 sendEvent(emitter, "error", "{\"message\":\"" + jsonStr(e.getMessage()) + "\"}");
                 emitter.completeWithError(e);
@@ -152,7 +139,7 @@ public class TripSessionController {
 
     @GetMapping("/{id}/plan")
     public Result<ItineraryVO> getPlan(@PathVariable Long id) {
-        ItineraryVO plan = loadPlan(id);
+        ItineraryVO plan = planService.getPlanBySessionId(id);
         return plan != null ? Result.success(plan) : Result.success(null);
     }
 
@@ -174,98 +161,10 @@ public class TripSessionController {
 
     // --- helpers ---
 
-    private ItineraryVO loadPlan(Long sessionId) {
-        TripSession s = sessionService.getById(sessionId);
-        if (s == null || s.getPlanId() == null) {
-            log.info("[PlanDetect] sessionId={} hasPlanId=null", sessionId);
-            return null;
-        }
-        TripPlan tp = planService.getById(s.getPlanId());
-        if (tp == null) {
-            log.info("[PlanDetect] planId={} 不存在", s.getPlanId());
-            return null;
-        }
-
-        List<DayPlan> itinerary = buildItineraryFromLocations(s.getPlanId());
-        String weather = tp.getWeatherInfo();
-        List<LocationItem> locations = loadLocations(s.getPlanId());
-
-        log.info("[PlanDetect] ✓ 加载计划 planId={} title={} days={} itineraryDays={} locations={}",
-                tp.getPlanId(), tp.getTitle(), tp.getDays(),
-                itinerary != null ? itinerary.size() : 0,
-                locations != null ? locations.size() : 0);
-
-        return ItineraryVO.builder()
-                .planId(tp.getPlanId())
-                .title(tp.getTitle())
-                .days(tp.getDays())
-                .budget(tp.getBudget())
-                .weather(weather)
-                .itinerary(itinerary)
-                .locations(locations)
-                .build();
-    }
-
-    private List<LocationItem> loadLocations(Long planId) {
-        LambdaQueryWrapper<TripPlanLocation> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TripPlanLocation::getPlanId, planId)
-                .orderByAsc(TripPlanLocation::getSortOrder);
-        List<TripPlanLocation> locs = locationMapper.selectList(wrapper);
-        return locs.stream().map(l -> LocationItem.builder()
-                .locationId(l.getLocationId())
-                .name(l.getName())
-                .city(l.getCity())
-                .address(l.getAddress())
-                .latitude(l.getLatitude())
-                .longitude(l.getLongitude())
-                .dayNumber(l.getDayNumber())
-                .sortOrder(l.getSortOrder())
-                .timeSlot(l.getTimeSlot())
-                .duration(l.getDuration())
-                .transport(l.getTransport())
-                .build()).collect(Collectors.toList());
-    }
-
-    private List<DayPlan> buildItineraryFromLocations(Long planId) {
-        LambdaQueryWrapper<TripPlanLocation> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TripPlanLocation::getPlanId, planId)
-                .isNotNull(TripPlanLocation::getDayNumber)
-                .orderByAsc(TripPlanLocation::getSortOrder);
-        List<TripPlanLocation> locs = locationMapper.selectList(wrapper);
-
-        Map<Integer, List<TripPlanLocation>> dayMap = locs.stream()
-                .collect(Collectors.groupingBy(TripPlanLocation::getDayNumber));
-
-        return dayMap.keySet().stream().sorted().map(day -> {
-            List<SpotItem> spots = dayMap.get(day).stream().map(l -> SpotItem.builder()
-                    .timeSlot(l.getTimeSlot())
-                    .name(l.getName())
-                    .address(l.getAddress())
-                    .duration(l.getDuration())
-                    .transport(l.getTransport())
-                    .note(l.getDescription())
-                    .lat(l.getLatitude())
-                    .lng(l.getLongitude())
-                    .build()).collect(Collectors.toList());
-            return DayPlan.builder()
-                    .day(day)
-                    .date("第" + day + "天")
-                    .spots(spots)
-                    .build();
-        }).collect(Collectors.toList());
-    }
-
     private void sendEvent(SseEmitter emitter, String event, String data) {
         try {
             emitter.send(SseEmitter.event().name(event).data(data));
         } catch (IOException ignored) {}
-    }
-
-    private void logPlanDetection(Long sessionId, ItineraryVO plan) {
-        TripSession s = sessionService.getById(sessionId);
-        log.info("[PlanDetect] sessionId={} hasPlanId={} loadResult={}",
-                sessionId, s != null ? s.getPlanId() : "N/A",
-                plan != null ? "planId=" + plan.getPlanId() + " days=" + plan.getDays() : "null");
     }
 
     private String jsonStr(String s) {

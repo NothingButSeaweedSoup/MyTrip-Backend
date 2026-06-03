@@ -9,11 +9,11 @@ import com.backend.entity.Comment;
 import com.backend.entity.Post;
 import com.backend.entity.User;
 import com.backend.mapper.CommentMapper;
+import com.backend.mapper.UserMapper;
 import com.backend.entity.UserBehavior;
 import com.backend.service.CommentService;
 import com.backend.service.PostService;
 import com.backend.service.UserBehaviorService;
-import com.backend.service.UserService;
 import com.backend.util.ImageUrlUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -33,7 +33,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     // Redis key constants → com.backend.common.RedisKeys
 
     @Autowired
-    private UserService userService;
+    private UserMapper userMapper;
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -241,7 +241,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
                 .distinct()
                 .collect(Collectors.toList());
         if (userIds.isEmpty()) return Collections.emptyMap();
-        return userService.listByIds(userIds).stream()
+        return userMapper.selectBatchIds(userIds).stream()
                 .collect(Collectors.toMap(User::getUserId, u -> u));
     }
 

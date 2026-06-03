@@ -3,27 +3,23 @@ package com.backend.service.impl;
 import com.backend.common.BusinessException;
 import com.backend.common.UnauthorizedException;
 import com.backend.dto.*;
-import com.backend.entity.*;
+import com.backend.entity.User;
 import com.backend.mapper.UserMapper;
-import com.backend.service.*;
+import com.backend.service.DashboardService;
+import com.backend.service.UserService;
 import com.backend.util.ImageUrlUtil;
 import com.backend.util.JwtUtil;
 import com.backend.util.TokenBlacklistUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 
 @Service
@@ -41,29 +37,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Autowired
     private ImageUrlUtil imageUrlUtil;
 
-    @Lazy
     @Autowired
-    private PostService postService;
-
-    @Lazy
-    @Autowired
-    private FavoriteService favoriteService;
-
-    @Lazy
-    @Autowired
-    private TripPlanService tripPlanService;
-
-    @Lazy
-    @Autowired
-    private CommentService commentService;
-
-    @Lazy
-    @Autowired
-    private ScenicSpotService scenicSpotService;
-
-    @Lazy
-    @Autowired
-    private PostAuditRecordService postAuditRecordService;
+    private DashboardService dashboardService;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -113,12 +88,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        UserVO vo = toUserVO(user);
-        vo.setPostCount(postService.lambdaQuery().eq(Post::getAuthorId, userId)
-                .ne(Post::getStatus, 4).count());
-        vo.setFavoriteCount(favoriteService.lambdaQuery()
-                .eq(Favorite::getUserId, userId).count());
-        return vo;
+        return dashboardService.enrichCurrentUser(userId, toUserVO(user));
     }
 
     @Override
@@ -238,70 +208,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        Long postCount = postService.lambdaQuery().eq(Post::getAuthorId, userId).ne(Post::getStatus, 4).count();
-        Long favoriteCount = favoriteService.lambdaQuery().eq(Favorite::getUserId, userId).count();
-        Long tripCount = tripPlanService.lambdaQuery().eq(TripPlan::getUserId, userId).count();
-        List<Post> recentPosts = postService.lambdaQuery()
-                .eq(Post::getAuthorId, userId)
-                .ne(Post::getStatus, 4)
-                .orderByDesc(Post::getCreateTime)
-                .last("LIMIT 5")
-                .list();
-        List<PostVO> postVOs = recentPosts.stream().map(p -> PostVO.builder()
-                .postId(p.getPostId())
-                .title(p.getTitle())
-                .createTime(p.getCreateTime())
-                .build()).toList();
-        List<TripPlan> recentTrips = tripPlanService.lambdaQuery()
-                .eq(TripPlan::getUserId, userId)
-                .orderByDesc(TripPlan::getCreateTime)
-                .last("LIMIT 5")
-                .list();
-        List<ItineraryVO> tripVOs = recentTrips.stream().map(t -> ItineraryVO.builder()
-                .planId(t.getPlanId())
-                .title(t.getTitle())
-                .days(t.getDays())
-                .budget(t.getBudget())
-                .build()).toList();
-        return UserDetailVO.builder()
-                .userId(user.getUserId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .avatar(user.getAvatar())
-                .bio(user.getBio())
-                .role(user.getRole())
-                .status(user.getStatus())
-                .createTime(user.getCreateTime())
-                .postCount(postCount.intValue())
-                .favoriteCount(favoriteCount.intValue())
-                .tripCount(tripCount.intValue())
-                .recentPosts(postVOs)
-                .recentTrips(tripVOs)
-                .build();
+        return dashboardService.getUserDetail(adminUserId, userId);
     }
 
     @Override
     public DashboardVO getDashboard(Long adminUserId) {
         checkAdminRole(adminUserId);
-        Long totalUsers = (long) count();
-        Long totalPosts = (long) postService.lambdaQuery().ne(Post::getStatus, 4).count();
-        Long totalScenicSpots = (long) scenicSpotService.count();
-        Long totalComments = (long) commentService.count();
-        LocalDate today = LocalDate.now();
-        Date todayStart = Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant());
-        Long todayNewUsers = (long) lambdaQuery().ge(User::getCreateTime, todayStart).count();
-        Long todayNewPosts = (long) postService.lambdaQuery().ge(Post::getCreateTime, todayStart).count();
-        Long pendingReviewPosts = (long) postService.lambdaQuery().eq(Post::getStatus, 0).count();
-        return DashboardVO.builder()
-                .totalUsers(totalUsers)
-                .totalPosts(totalPosts)
-                .totalScenicSpots(totalScenicSpots)
-                .totalComments(totalComments)
-                .todayNewUsers(todayNewUsers)
-                .todayNewPosts(todayNewPosts)
-                .pendingReviewPosts(pendingReviewPosts)
-                .pendingReviewComments(0L)
-                .build();
+        return dashboardService.getDashboard(adminUserId);
     }
 
     private UserVO toUserVO(User user) {
