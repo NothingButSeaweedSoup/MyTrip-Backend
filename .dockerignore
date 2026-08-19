@@ -1,0 +1,11 @@
+target/
+.git/
+.gitignore
+.idea/
+*.iml
+.mvn/
+logs/
+src/test/
+Dockerfile
+.dockerignore
+.env

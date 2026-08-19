@@ -225,7 +225,7 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
                 throw new BusinessException("帖子不存在");
             }
         }
-        viewCountTask.incrementViews(postId);
+        viewCountTask.incrementViews(postId, userId);
         return toPostVO(post, userId);
     }
 

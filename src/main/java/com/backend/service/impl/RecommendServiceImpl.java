@@ -49,7 +49,7 @@ public class RecommendServiceImpl implements RecommendService {
 
     // === 已推荐衰减 ===
     private static final long SEEN_PENALTY_HOURS = 24;
-    private static final double SEEN_PENALTY_WEIGHT = 0.3;
+    private static final double SEEN_PENALTY_WEIGHT = 1.2;
     private static final int MAX_SEEN_RECORDS = 200;
 
     @Value("${search.hybrid.default-semantic-weight:0.5}")
@@ -99,6 +99,11 @@ public class RecommendServiceImpl implements RecommendService {
         // 记录已推荐过的帖子（24h内降权，下次"换一批"就不会再看到）
         if (userId != null && !pagedIds.isEmpty()) {
             recordSeenPosts(userId, pagedIds);
+            // 全部帖子都推荐过时，重置惩罚从头开始
+            Long seenCount = stringRedisTemplate.opsForZSet().zCard(RedisKeys.RECOMMEND_FEED + "seen:" + userId);
+            if (seenCount != null && seenCount >= total) {
+                stringRedisTemplate.delete(RedisKeys.RECOMMEND_FEED + "seen:" + userId);
+            }
         }
 
         return result;
@@ -385,13 +390,13 @@ public class RecommendServiceImpl implements RecommendService {
 
             double freshScore = calcFreshness(post.getCreateTime());
 
-            // 已推荐降权：24h线性衰减，刚看过扣最多，24h后恢复
+            // 已推荐降权：S型曲线，初期缓慢衰减，12h衰减最快，24h后恢复
             double seenPenalty = 0;
             Long seenTime = seenTimestamps.get(postId);
             if (seenTime != null) {
                 long hoursSinceSeen = (now - seenTime) / 3_600_000;
                 if (hoursSinceSeen < SEEN_PENALTY_HOURS) {
-                    seenPenalty = SEEN_PENALTY_WEIGHT * (1 - (double) hoursSinceSeen / SEEN_PENALTY_HOURS);
+                    seenPenalty = SEEN_PENALTY_WEIGHT / (1.0 + Math.exp(0.5 * (hoursSinceSeen - 12)));
                 }
             }
 

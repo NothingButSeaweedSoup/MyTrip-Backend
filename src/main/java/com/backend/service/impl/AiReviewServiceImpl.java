@@ -20,6 +20,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -124,7 +127,7 @@ public class AiReviewServiceImpl implements AiReviewService {
     @Override
     public AiReviewResult reviewWithImages(String title, String content, List<String> imageUrls) {
         if (visionChatModel == null) {
-            log.warn("视觉模型未配置，降级为纯文本审核");
+            log.error("视觉模型未配置，图片审核已降级为纯文本审核（帖子中的图片未被审核），请检查 visionChatModel Bean 配置");
             return review(title, content);
         }
         if (imageUrls == null || imageUrls.isEmpty()) {
@@ -138,7 +141,18 @@ public class AiReviewServiceImpl implements AiReviewService {
             List<Content> contents = new ArrayList<>();
             contents.add(TextContent.from(getFullImageReviewPrompt() + "\n\n帖子标题：" + title + "\n帖子内容：" + content));
             for (String url : urls) {
-                contents.add(ImageContent.from(url));
+                try {
+                    contents.add(ImageContent.from(url));
+                } catch (Exception imgEx) {
+                    log.warn("AI 图片审核加载图片失败，尝试 base64 兜底: url={}, error={}", url, imgEx.getMessage());
+                    try {
+                        byte[] imageBytes = downloadImageBytes(url);
+                        String base64 = java.util.Base64.getEncoder().encodeToString(imageBytes);
+                        contents.add(ImageContent.from(base64, "image/jpeg"));
+                    } catch (Exception fallbackEx) {
+                        log.error("图片审核 base64 兜底也失败，跳过该图片: url={}", url, fallbackEx);
+                    }
+                }
             }
 
             UserMessage userMessage = UserMessage.from(contents);
@@ -257,5 +271,17 @@ public class AiReviewServiceImpl implements AiReviewService {
 
         log.warn("AI 审核结果解析失败: {}", json);
         return new AiReviewResult(AiReviewResult.NEED_MANUAL, "AI 审核结果解析失败");
+    }
+
+    private byte[] downloadImageBytes(String imageUrl) throws Exception {
+        try (InputStream in = URI.create(imageUrl).toURL().openStream();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                out.write(buf, 0, n);
+            }
+            return out.toByteArray();
+        }
     }
 }

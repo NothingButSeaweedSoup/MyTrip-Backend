@@ -92,7 +92,7 @@ public class ReviewPipeline {
         imgWrapper.eq(PostImage::getPostId, postId);
         List<String> imageUrls = postImageService.list(imgWrapper).stream()
                 .map(PostImage::getUrl)
-                .map(imageUrlUtil::getFullUrl)
+                .map(url -> "http://backend:8180" + (url.startsWith("/") ? url : "/" + url))
                 .collect(Collectors.toList());
 
         AiReviewService.AiReviewResult aiResult;

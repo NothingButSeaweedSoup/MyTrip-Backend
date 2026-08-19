@@ -36,6 +36,14 @@ public class ReviewEmailTask {
     /** 内部轮询间隔 30 秒，实际执行间隔由 Redis 配置决定 */
     @Scheduled(fixedDelay = 30_000)
     public void checkAndNotify() {
+        try {
+            checkAndNotifyInternal();
+        } catch (Exception e) {
+            log.warn("checkAndNotify failed: {}", e.getMessage());
+        }
+    }
+
+    private void checkAndNotifyInternal() {
         String enabledStr = redisTemplate.opsForValue().get(RedisKeys.REVIEW_EMAIL_ENABLED);
         if (!"true".equals(enabledStr)) {
             return;

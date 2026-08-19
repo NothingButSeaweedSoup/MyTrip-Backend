@@ -66,6 +66,14 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             postService.updateById(post);
         }
 
+        // 写入用户行为记录（评论）
+        UserBehavior ub = new UserBehavior();
+        ub.setUserId(userId);
+        ub.setPostId(request.getPostId());
+        ub.setActionType("comment");
+        ub.setCreateTime(new Date());
+        userBehaviorService.save(ub);
+
         return comment.getCommentId();
     }
 

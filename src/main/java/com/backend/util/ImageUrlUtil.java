@@ -17,13 +17,12 @@ public class ImageUrlUtil {
         if (!StringUtils.hasText(relativePath)) {
             return relativePath;
         }
-        if (!StringUtils.hasText(baseImgUrl)) {
-            return relativePath;
-        }
-        // 去掉重复的斜杠
-        String base = baseImgUrl.endsWith("/") ? baseImgUrl.substring(0, baseImgUrl.length() - 1) : baseImgUrl;
         String path = relativePath.replace('\\', '/');
         path = path.startsWith("/") ? path : "/" + path;
+        if (!StringUtils.hasText(baseImgUrl)) {
+            return path;
+        }
+        String base = baseImgUrl.endsWith("/") ? baseImgUrl.substring(0, baseImgUrl.length() - 1) : baseImgUrl;
         return base + path;
     }
 }
